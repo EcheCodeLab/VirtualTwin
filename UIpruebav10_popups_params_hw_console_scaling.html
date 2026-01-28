@@ -58,8 +58,12 @@ body.panel-hidden #miniBar { display:flex; }
     .hwrow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 4px 0; border-bottom: 1px dashed rgba(31,42,55,0.7); }
     .hwrow:last-child{ border-bottom:none; }
     .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:8px; }
-    .hwname { display:flex; align-items:center; font-size:6px; color:#cfe1f3; }
+    .hwname { display:flex; align-items:center; gap:6px; font-size:6px; color:#cfe1f3; }
+    .hwshort { font-size:7px; font-weight:650; color:#e2e8f0; }
+    .hwdesc { font-size:6px; color:#9fb0c0; }
     .hwst { font-size:6px; color: var(--muted); }
+    .hwgroup { margin: 8px 0 4px; font-size: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .hwlegend { font-size:7px; color: var(--muted); margin-bottom:6px; }
 
     .canvas-wrap { position: relative; padding: 10px 12px 12px; }
     .dashboard { display:flex; flex-direction:column; gap:3px; background:#0b1017; border:1px solid #1f2a37; border-radius:12px; padding:5px 6px; margin-bottom:4px; }
@@ -366,6 +370,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 8px; }
 
       <div class="panel-section" id="panelHW">
         <div style="margin: 10px 0 8px; font-size:12px; color: var(--muted);">Electrónica – estado instantáneo</div>
+        <div class="hwlegend">Abreviatura · descripción completa · estado (agrupado por módulo).</div>
         <div class="hwlist" id="hwList"></div>
       </div>
       <div class="detached-note" id="panelHWDetached">Estado de electrónica en ventana emergente.</div>
@@ -1825,8 +1830,10 @@ layoutWorld();
 
 // actuadores de magazines / stacks (visual, para contemplar apilado vertical)
 const pm = world.plateMagZ, rm = world.rackMagZ, ps = world.plateStackZ;
-add("plate_mag_lift", "Actuador Z magazine placas", {x: pm.x + pm.w/2, y: pm.y + pm.d/2}, sim.magPlateLiftT > 0, "motor");
-add("rack_mag_lift",  "Actuador Z magazine racks",  {x: rm.x + rm.w/2, y: rm.y + rm.d/2}, sim.magRackLiftT > 0, "motor");
+const rackZExt = { x: world.rackEntryExternal.x - 70, y: world.rackEntryExternal.y - 60, w: rm.w, d: rm.d };
+const plateZExt = { x: world.plateEntryM3External.x + 40, y: world.plateEntryM3External.y - 60, w: pm.w, d: pm.d };
+add("plate_mag_lift", "Actuador Z magazine placas", {x: plateZExt.x + plateZExt.w/2, y: plateZExt.y + plateZExt.d/2}, sim.magPlateLiftT > 0, "motor");
+add("rack_mag_lift",  "Actuador Z magazine racks",  {x: rackZExt.x + rackZExt.w/2, y: rackZExt.y + rackZExt.d/2}, sim.magRackLiftT > 0, "motor");
 add("plate_stack_lift","Actuador Z stack salida",   {x: ps.x + ps.w/2, y: ps.y + ps.d/2}, sim.stackPlateLiftT > 0, "motor");
 
 // cambio consumibles (tips)
@@ -2388,20 +2395,20 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
 
       // si sólo querés LEDs (sin cajas), lo hacemos liviano
       if (showLeds && !showLabels){
-        circle(p.x, p.y, 4.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
+        circle(p.x, p.y, 3.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
         continue;
       }
 
       if (showLeds){
-        circle(p.x-40, p.y, 4.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
+        circle(p.x-34, p.y, 3.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
       }
 
       if (showLabels){
         ctx.save();
         ctx.fillStyle = "rgba(232,240,247,0.62)";
-        ctx.font = "5.5px system-ui";
+        ctx.font = "4.8px system-ui";
         const short = c.short || c.label;
-        ctx.fillText(short, p.x-30, p.y+4);
+        ctx.fillText(short, p.x-26, p.y+3);
         ctx.restore();
       }
     }
@@ -2572,14 +2579,14 @@ if (world.modules.length >= 3){
     drawLabel("Mag. racks", rm.x-38, rm.y-18);
 // footprints de apilado vertical (Z-lifts / magazines)
 const pmz = world.plateMagZ, rmz = world.rackMagZ, psz = world.plateStackZ;
-const pmzTL = mm2px({x: pmz.x, y: pmz.y});
-const rmzTL = mm2px({x: rmz.x, y: rmz.y});
 const pszTL = mm2px({x: psz.x, y: psz.y});
-rect(pmzTL.x, pmzTL.y, pmz.w*world.mmToPx, pmz.d*world.mmToPx, "rgba(59,130,246,0.08)", "rgba(59,130,246,0.25)", 1);
-rect(rmzTL.x, rmzTL.y, rmz.w*world.mmToPx, rmz.d*world.mmToPx, "rgba(74,222,128,0.08)", "rgba(74,222,128,0.25)", 1);
+const rackZExt = mm2px({x: world.rackEntryExternal.x - 70, y: world.rackEntryExternal.y - 60});
+const plateZExt = mm2px({x: world.plateEntryM3External.x + 40, y: world.plateEntryM3External.y - 60});
+rect(rackZExt.x, rackZExt.y, rmz.w*world.mmToPx, rmz.d*world.mmToPx, "rgba(74,222,128,0.08)", "rgba(74,222,128,0.25)", 1);
+rect(plateZExt.x, plateZExt.y, pmz.w*world.mmToPx, pmz.d*world.mmToPx, "rgba(59,130,246,0.08)", "rgba(59,130,246,0.25)", 1);
 rect(pszTL.x, pszTL.y, psz.w*world.mmToPx, psz.d*world.mmToPx, "rgba(168,85,247,0.08)", "rgba(168,85,247,0.25)", 1);
-drawLabel("Z-lift placas", pmzTL.x, pmzTL.y-10);
-drawLabel("Z-lift racks", rmzTL.x, rmzTL.y-10);
+drawLabel("Z-lift racks ext", rackZExt.x, rackZExt.y-10);
+drawLabel("Z-lift placas ext", plateZExt.x, plateZExt.y-10);
 drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
 
@@ -2685,21 +2692,52 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
     vTimeScale.textContent = `${timeScale.toFixed(2)}×`;
 
-    // hardware list (si querés, esto también lo podemos esconder con otro checkbox)
+    // hardware list (agrupado por módulo)
     hwListEl.innerHTML = "";
+    const moduleForPos = (pos) => {
+      if (!pos || world.modules.length < 1) return "M1";
+      if (world.modules.length >= 3){
+        const x2 = world.modules[1].x;
+        const x3 = world.modules[2].x;
+        if (pos.x < x2) return "M1";
+        if (pos.x < x3) return "M2";
+        return "M3";
+      }
+      return "M1";
+    };
+    const groups = { M1: [], M2: [], M3: [] };
     for (const c of sim.hw){
-      const dotCol = c.active
-        ? (c.kind==="servo" ? "rgba(168,85,247,0.95)" : (c.kind==="sensor" ? "rgba(59,130,246,0.95)" : "rgba(74,222,128,0.95)"))
-        : (c.kind==="servo" ? "rgba(168,85,247,0.18)" : (c.kind==="sensor" ? "rgba(59,130,246,0.18)" : "rgba(74,222,128,0.18)"));
-
-      const row = document.createElement("div");
-      row.className = "hwrow";
-      row.innerHTML = `
-        <div class="hwname"><span class="dot" style="background:${dotCol}"></span>${c.short || c.label}</div>
-        <div class="hwst">${c.active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>
-      `;
-      hwListEl.appendChild(row);
+      const key = moduleForPos(c.posMM);
+      groups[key] = groups[key] || [];
+      groups[key].push(c);
     }
+    const renderGroup = (name, items) => {
+      if (!items || items.length === 0) return;
+      const title = document.createElement("div");
+      title.className = "hwgroup";
+      title.textContent = "Módulo " + name;
+      hwListEl.appendChild(title);
+      for (const c of items){
+        const dotCol = c.active
+          ? (c.kind==="servo" ? "rgba(168,85,247,0.95)" : (c.kind==="sensor" ? "rgba(59,130,246,0.95)" : "rgba(74,222,128,0.95)"))
+          : (c.kind==="servo" ? "rgba(168,85,247,0.18)" : (c.kind==="sensor" ? "rgba(59,130,246,0.18)" : "rgba(74,222,128,0.18)"));
+
+        const row = document.createElement("div");
+        row.className = "hwrow";
+        row.innerHTML = `
+          <div class="hwname">
+            <span class="dot" style="background:${dotCol}"></span>
+            <span class="hwshort">${c.short || ""}</span>
+            <span class="hwdesc">${c.label}</span>
+          </div>
+          <div class="hwst">${c.active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>
+        `;
+        hwListEl.appendChild(row);
+      }
+    };
+    renderGroup("M1", groups.M1);
+    renderGroup("M2", groups.M2);
+    renderGroup("M3", groups.M3);
   }
 
   // --- NEW --- Dashboard + run report UI
@@ -3268,11 +3306,14 @@ ${closeScript}
   .hwrow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 4px 0; border-bottom: 1px dashed rgba(31,42,55,0.7); }
   .hwrow:last-child{ border-bottom:none; }
   .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:8px; }
-  .hwname { display:flex; align-items:center; font-size:6px; color:#cfe1f3; }
+  .hwname { display:flex; align-items:center; gap:6px; font-size:6px; color:#cfe1f3; }
+  .hwshort { font-size:11px; font-weight:650; color:#e2e8f0; }
+  .hwdesc { font-size:10px; color:#9fb0c0; }
   .hwst { font-size:6px; color: var(--muted); }
   .status-ok { color: var(--ok); }
   .status-bad { color: var(--bad); }
   .muted { color:#8aa0b5; }
+  .hwlegend { font-size:11px; color:var(--muted); margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -3296,6 +3337,7 @@ ${closeScript}
         <div class="item"><div class="k">Válvula</div><div class="v" id="valve">-</div></div>
         <div class="item"><div class="k">Reservorio / descarte</div><div class="v" id="waste">-</div></div>
       </div>
+      <div class="hwlegend">Abreviatura · descripción completa · estado (agrupado por módulo).</div>
       <div class="hwlist" id="hwList"></div>
     </div>
   </section>
@@ -3378,7 +3420,11 @@ ${openScript}
         const row = document.createElement("div");
         row.className = "hwrow";
         row.innerHTML =
-          '<div class="hwname"><span class="dot" style="background:' + dotCol + '"></span>' + c.label + '</div>' +
+          '<div class="hwname">' +
+            '<span class="dot" style="background:' + dotCol + '"></span>' +
+            '<span class="hwshort">' + (c.short || "") + '</span>' +
+            '<span class="hwdesc">' + c.label + '</span>' +
+          '</div>' +
           '<div class="hwst">' + (active ? "<span class=\\'status-ok\\'>ON</span>" : "<span class=\\'muted\\'>OFF</span>") + '</div>';
         hwListEl.appendChild(row);
       }
