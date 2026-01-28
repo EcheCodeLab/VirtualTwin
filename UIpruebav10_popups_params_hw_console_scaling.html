@@ -622,7 +622,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     rackSupply: 10,
 
     // tip boxes
-    smallBoxes: 3,
+    smallBoxes: 2,
     largeBoxes: 2,
 
     wasteTipCap: 400,
@@ -858,9 +858,9 @@ const ioMap = [
   world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
   world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
 
-  // tips SMALL (hasta 6 cajas) dentro de M2, bloque inferior derecho
+  // tips SMALL dentro de M2, bloque inferior derecho (más compacto)
   const smallCols = 2;
-  const smallRows = 3;
+  const smallRows = 2;
   const smallBlockW = smallCols * plateW + (smallCols - 1) * tipGap;
   const smallBlockH = smallRows * plateD + (smallRows - 1) * tipGap;
   const smallStartX = x2 + W - smallBlockW - 30;
@@ -886,9 +886,9 @@ const ioMap = [
   world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.35 };
   world.plateOutM3 =        { x: x3 + W*0.55,  y: y0 + D - 30 };
 
-  // tips LARGE dentro de M3, bloque inferior izquierdo
+  // tips LARGE dentro de M3, bloque inferior izquierdo (más compacto)
   const largeCols = 1;
-  const largeRows = 4;
+  const largeRows = 3;
   const largeBlockW = largeCols * plateW + (largeCols - 1) * tipGap;
   const largeBlockH = largeRows * plateD + (largeRows - 1) * tipGap;
   const largeStartX = x3 + W - largeBlockW - 30;
@@ -1753,8 +1753,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering XZ view inset
   function drawEngineeringXZ(){
-    const insetW = 320;
-    const insetH = 160;
+    const insetW = 420;
+    const insetH = 200;
     const pad = 12;
     const left = BASE_CANVAS_W - insetW - 18;
     const top = BASE_CANVAS_H - insetH - 18;
@@ -1774,8 +1774,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseX = left + pad;
     const baseY = top + insetH - pad;
 
-    const scale = world.mmToPx || 1;
-    const maxX = Math.min(world.totalW_mm || 1, innerW / scale);
+    const maxX = world.totalW_mm || 1;
     const tipSmallLen = cfg.tipSmallLen_mm || 52;
     const tipLargeLen = cfg.tipLargeLen_mm || 90;
     const plateZ = cfg.plateH_mm || 16;
@@ -1795,7 +1794,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       pipAInfo.headZ,
       pipRInfo.headZ
     );
-    const visibleZ = Math.min(maxZ, innerH / scale);
+    const scale = Math.min(
+      world.mmToPx || 1,
+      innerW / Math.max(1, maxX),
+      innerH / Math.max(1, maxZ)
+    );
+    const visibleZ = maxZ;
     const sx = scale;
     const sz = scale;
 
@@ -1817,11 +1821,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.stroke();
 
     for (const mod of world.modules){
-      const visibleW = Math.min(mod.w, maxX - mod.x);
-      if (visibleW <= 0) continue;
       const x = baseX + mod.x * sx;
-      const w = visibleW * sx;
-      const h = Math.min(mod.h, visibleZ) * sz;
+      const w = mod.w * sx;
+      const h = mod.h * sz;
       ctx.fillStyle = "rgba(59,130,246,0.12)";
       ctx.strokeStyle = "rgba(59,130,246,0.4)";
       ctx.fillRect(x, baseY - h, w, h);
@@ -1829,12 +1831,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     }
 
     const drawSurface = (label, xCenter, wMm, zMm, color) => {
-      const wClamp = Math.min(wMm, maxX);
-      const xStart = Math.max(0, xCenter - wMm/2);
-      if (xStart >= maxX || wClamp <= 0) return;
-      const x = baseX + xStart * sx;
-      const w = Math.min(wMm, maxX - xStart) * sx;
-      const h = Math.min(zMm, visibleZ) * sz;
+      const x = baseX + (xCenter - wMm/2) * sx;
+      const w = wMm * sx;
+      const h = zMm * sz;
       ctx.fillStyle = color;
       ctx.strokeStyle = "rgba(232,240,247,0.3)";
       ctx.fillRect(x, baseY - h, w, h);
@@ -1892,8 +1891,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering YZ view inset
   function drawEngineeringYZ(){
-    const insetW = 320;
-    const insetH = 160;
+    const insetW = 420;
+    const insetH = 200;
     const pad = 12;
     const left = 18;
     const top = BASE_CANVAS_H - insetH - 18;
@@ -1913,8 +1912,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseX = left + pad;
     const baseY = top + insetH - pad;
 
-    const scale = world.mmToPx || 1;
-    const maxY = Math.min(world.totalH_mm || 1, innerW / scale);
+    const maxY = world.totalH_mm || 1;
     const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
     const pipAInfo = getPipetteZ(sim.pipA, true);
     const pipRInfo = getPipetteZ(sim.pipR, false);
@@ -1925,7 +1923,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       pipAInfo.headZ,
       pipRInfo.headZ
     );
-    const visibleZ = Math.min(maxZ, innerH / scale);
+    const scale = Math.min(
+      world.mmToPx || 1,
+      innerW / Math.max(1, maxY),
+      innerH / Math.max(1, maxZ)
+    );
+    const visibleZ = maxZ;
     const sy = scale;
     const sz = scale;
 
@@ -1947,11 +1950,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.stroke();
 
     for (const mod of world.modules){
-      const visibleW = Math.min(mod.d, maxY - mod.y);
-      if (visibleW <= 0) continue;
       const y = baseX + mod.y * sy;
-      const w = visibleW * sy;
-      const h = Math.min(mod.h, visibleZ) * sz;
+      const w = mod.d * sy;
+      const h = mod.h * sz;
       ctx.fillStyle = "rgba(59,130,246,0.12)";
       ctx.strokeStyle = "rgba(59,130,246,0.4)";
       ctx.fillRect(y, baseY - h, w, h);
@@ -1959,12 +1960,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     }
 
     const drawSurface = (label, yCenter, dMm, zMm, color) => {
-      const wClamp = Math.min(dMm, maxY);
-      const yStart = Math.max(0, yCenter - dMm/2);
-      if (yStart >= maxY || wClamp <= 0) return;
-      const y = baseX + yStart * sy;
-      const w = Math.min(dMm, maxY - yStart) * sy;
-      const h = Math.min(zMm, visibleZ) * sz;
+      const y = baseX + (yCenter - dMm/2) * sy;
+      const w = dMm * sy;
+      const h = zMm * sz;
       ctx.fillStyle = color;
       ctx.strokeStyle = "rgba(232,240,247,0.3)";
       ctx.fillRect(y, baseY - h, w, h);
@@ -2293,20 +2291,21 @@ if (world.modules.length >= 3){
     const rq = mm2px(world.rackPipetteOrigin);
     drawLabel(`Cola racks: ${sim.rackQueue.length}`, rq.x-20, rq.y+90);
 
+    const gateRackW = 120 * world.mmToPx;
     const inM1 = mm2px(world.rackInputM1);
-    rect(inM1.x-16, inM1.y-10, 32, 20, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    rect(inM1.x - gateRackW/2, inM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Entrada racks", inM1.x-38, inM1.y+22);
 
     const exitM1 = mm2px(world.rackExitM1);
-    rect(exitM1.x-10, exitM1.y-16, 20, 32, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    rect(exitM1.x - gateRackW/2, exitM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Compuerta rack → M2", exitM1.x-64, exitM1.y-22);
 
     const rackInM2 = mm2px(world.rackInM2);
-    rect(rackInM2.x-10, rackInM2.y-16, 20, 32, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    rect(rackInM2.x - gateRackW/2, rackInM2.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Rack entrada M2", rackInM2.x-44, rackInM2.y-22);
 
     const rackOutM2 = mm2px(world.rackOutM2);
-    rect(rackOutM2.x-12, rackOutM2.y-10, 24, 20, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    rect(rackOutM2.x - gateRackW/2, rackOutM2.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Rack salida M2", rackOutM2.x-42, rackOutM2.y+22);
 
     const plateInM2 = mm2px(world.plateInM2);
