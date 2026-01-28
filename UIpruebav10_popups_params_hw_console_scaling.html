@@ -2626,9 +2626,9 @@ ${openScript}
 
       const row = document.createElement("div");
       row.className = "hwrow";
-      row.innerHTML = `
-        <div class="hwname"><span class="dot" style="background:${dotCol}"></span>${c.label}</div>
-        <div class="hwst">${active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>`;
+      row.innerHTML =
+        '<div class="hwname"><span class="dot" style="background:' + dotCol + '"></span>' + c.label + '</div>' +
+        '<div class="hwst">' + (active ? "<span class=\\'status-ok\\'>ON</span>" : "<span class=\\'muted\\'>OFF</span>") + '</div>';
       hwListEl.appendChild(row);
     }
   }
@@ -2838,14 +2838,14 @@ ${openScript}
     for (const mod of modules){
       const tr = document.createElement("tr");
       tr.dataset.id = mod.id;
-      tr.innerHTML = `
-        <td><input data-field="name" value="${mod.name}" /></td>
-        <td><input data-field="x_mm" type="number" value="${mod.x_mm}" /></td>
-        <td><input data-field="y_mm" type="number" value="${mod.y_mm}" /></td>
-        <td><input data-field="w_mm" type="number" value="${mod.w_mm}" /></td>
-        <td><input data-field="h_mm" type="number" value="${mod.h_mm}" /></td>
-        <td><input data-field="z_mm" type="number" value="${mod.z_mm ?? ""}" /></td>
-        <td><input data-field="notes" value="${mod.notes || ""}" /></td>`;
+      tr.innerHTML =
+        '<td><input data-field="name" value="' + mod.name + '" /></td>' +
+        '<td><input data-field="x_mm" type="number" value="' + mod.x_mm + '" /></td>' +
+        '<td><input data-field="y_mm" type="number" value="' + mod.y_mm + '" /></td>' +
+        '<td><input data-field="w_mm" type="number" value="' + mod.w_mm + '" /></td>' +
+        '<td><input data-field="h_mm" type="number" value="' + mod.h_mm + '" /></td>' +
+        '<td><input data-field="z_mm" type="number" value="' + (mod.z_mm ?? "") + '" /></td>' +
+        '<td><input data-field="notes" value="' + (mod.notes || "") + '" /></td>';
       layoutBody.appendChild(tr);
     }
   }
@@ -2863,16 +2863,16 @@ ${openScript}
       if (search && !hay.includes(search)) continue;
 
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${io.id}</td>
-        <td>${io.label}</td>
-        <td>${io.kind}</td>
-        <td>${io.signal}</td>
-        <td>${io.endpoint}</td>
-        <td>${io.update_hz}</td>
-        <td>${io.latency_ms}</td>
-        <td>${io.criticality}</td>
-        <td>${io.notes || ""}</td>`;
+      tr.innerHTML =
+        "<td>" + io.id + "</td>" +
+        "<td>" + io.label + "</td>" +
+        "<td>" + io.kind + "</td>" +
+        "<td>" + io.signal + "</td>" +
+        "<td>" + io.endpoint + "</td>" +
+        "<td>" + io.update_hz + "</td>" +
+        "<td>" + io.latency_ms + "</td>" +
+        "<td>" + io.criticality + "</td>" +
+        "<td>" + (io.notes || "") + "</td>";
       ioBody.appendChild(tr);
     }
   }
