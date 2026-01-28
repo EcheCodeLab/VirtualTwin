@@ -660,7 +660,8 @@ const world = {
   plateStackPos:  { x: 0, y: 0 },
 
   reservoir: { x: 0, y: 0 },
-  waste:     { x: 0, y: 0 },
+  wasteA:    { x: 0, y: 0 },
+  wasteR:    { x: 0, y: 0 },
   washWaste: { x: 0, y: 0 },
 
   plateMag:  { x: 0, y: 0 },
@@ -676,6 +677,14 @@ const world = {
   largeBoxTLs: [],
   tipPitchSmall: 9.0,
   tipPitchLarge: 18.0,
+
+  rackInputM1: { x: 0, y: 0 },
+  rackExitM1:  { x: 0, y: 0 },
+  rackInM2:    { x: 0, y: 0 },
+  rackOutM2:   { x: 0, y: 0 },
+  plateInM2:   { x: 0, y: 0 },
+  plateInM3:   { x: 0, y: 0 },
+  plateOutM3:  { x: 0, y: 0 },
 
   controllerBox: { x: 0, y: 0 }
 };
@@ -713,7 +722,8 @@ let layout = { modules: [] };
   mods.push({ id: "plate_buffer", name: "Buffer placas", x_mm: world.plateBufferPos.x - plateW/2, y_mm: world.plateBufferPos.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Buffer intermedio" });
   mods.push({ id: "plate_stack", name: "Stack final", x_mm: world.plateStackPos.x - plateW/2, y_mm: world.plateStackPos.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Stack final" });
   mods.push({ id: "reservoir", name: "Reservorio", x_mm: world.reservoir.x-50, y_mm: world.reservoir.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.reservoirH_mm, notes: "Reactivo" });
-  mods.push({ id: "waste", name: "Waste", x_mm: world.waste.x-50, y_mm: world.waste.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Descarte" });
+  mods.push({ id: "wasteA", name: "Waste M2", x_mm: world.wasteA.x-50, y_mm: world.wasteA.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Descarte tips + líquido" });
+  mods.push({ id: "wasteR", name: "Waste M3", x_mm: world.wasteR.x-50, y_mm: world.wasteR.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Descarte tips + reactivo" });
   mods.push({ id: "wash", name: "Waste lavado", x_mm: world.washWaste.x-50, y_mm: world.washWaste.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Lavado columnas" });
   mods.push({ id: "plate_mag", name: "Mag. placas", x_mm: world.plateMag.x-60, y_mm: world.plateMag.y-60, w_mm: 120, h_mm: 120, z_mm: 140, notes: "Magazine placas" });
   mods.push({ id: "rack_mag", name: "Mag. racks", x_mm: world.rackMag.x-60, y_mm: world.rackMag.y-60, w_mm: 120, h_mm: 120, z_mm: 140, notes: "Magazine racks" });
@@ -831,9 +841,11 @@ const ioMap = [
   world.columnOut =     { x: x1 + 70,          y: y0 + 70 };
   world.collectorHome = { x: x1 + W*0.50,      y: y0 + 110 };
   world.rackCollectOrigin = { x: x1 + W*0.50,  y: y0 + D*0.38 };
-  world.washWaste =     { x: x1 + 90,          y: y0 + D - 80 };
+  world.washWaste =     { x: world.collectorHome.x,  y: y0 + 60 };
   world.rackMag =       { x: x1 + W - 85,      y: y0 + D - 80 };
   world.rackMagZ =      { x: x1 + W - 170,     y: y0 + D - 170, w: 130, d: 130 };
+  world.rackInputM1 =   { x: x1 + W*0.22,      y: y0 + D - 30 };
+  world.rackExitM1 =    { x: x1 + W - 20,      y: world.rackCollectOrigin.y };
 
   // ===== M2 anchors =====
   world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
@@ -842,6 +854,9 @@ const ioMap = [
   world.plateBufferPos =    { x: x2 + W*0.72,  y: y0 + D*0.40 };
   world.plateMag =          { x: x2 + W*0.18,  y: y0 + D - 80 };
   world.plateMagZ =         { x: x2 + 30,      y: y0 + D - 170, w: 130, d: 130 };
+  world.rackInM2 =          { x: x2 + 20,      y: world.rackPipetteOrigin.y };
+  world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
+  world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
 
   // tips SMALL (hasta 6 cajas) dentro de M2, bloque inferior derecho
   const smallCols = 2;
@@ -863,10 +878,13 @@ const ioMap = [
   // ===== M3 anchors =====
   world.pipRHome =          { x: x3 + W*0.22,  y: y0 + 90 };
   world.plateSt2 =          { x: x3 + W*0.72,  y: y0 + D*0.22 };
-  world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.30 };
-  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.50 };
-  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D*0.42 };
+  world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.24 };
+  world.wasteA =            { x: x2 + W*0.70,  y: y0 + D*0.32 };
+  world.wasteR =            { x: x3 + W*0.22,  y: y0 + D*0.50 };
+  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D*0.72 };
   world.plateStackZ =       { x: x3 + W - 170, y: y0 + D - 170, w: 130, d: 130 };
+  world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.35 };
+  world.plateOutM3 =        { x: x3 + W*0.55,  y: y0 + D - 30 };
 
   // tips LARGE dentro de M3, bloque inferior izquierdo
   const largeCols = 1;
@@ -1344,7 +1362,7 @@ layoutWorld();
       }
 
       case "DROP_TIP": {
-        A.tx = world.waste.x; A.ty = world.waste.y;
+        A.tx = world.wasteA.x; A.ty = world.wasteA.y;
         const arrived = (Math.hypot(A.tx-A.x, A.ty-A.y) < 0.08);
         if (arrived){
           A.phaseT += dt;
@@ -1508,7 +1526,7 @@ layoutWorld();
       }
 
       case "DROP_TIP_END": {
-        R.tx = world.waste.x; R.ty = world.waste.y;
+        R.tx = world.wasteR.x; R.ty = world.wasteR.y;
         const arrived = (Math.hypot(R.tx-R.x, R.ty-R.y) < 0.08);
         if (arrived){
           R.phaseT += dt;
@@ -1609,7 +1627,8 @@ layoutWorld();
         (R.sub==="ASPIRATE_RES" || R.sub==="MOVE_TO_RES" || low), "sensor");
 
     const wasteWarn = (sim.wasteTipCount > 0.8*cfg.wasteTipCap) || (sim.wasteLiquid_uL > 0.8*cfg.wasteLiqCap_uL);
-    add("waste_level", "Sensor nivel descarte", {x: world.waste.x+22, y: world.waste.y-10}, wasteWarn, "sensor");
+    add("waste_level_A", "Sensor nivel descarte M2", {x: world.wasteA.x+22, y: world.wasteA.y-10}, wasteWarn, "sensor");
+    add("waste_level_R", "Sensor nivel descarte M3", {x: world.wasteR.x+22, y: world.wasteR.y-10}, wasteWarn, "sensor");
 
 // actuadores de magazines / stacks (visual, para contemplar apilado vertical)
 const pm = world.plateMagZ, rm = world.rackMagZ, ps = world.plateStackZ;
@@ -1755,7 +1774,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseX = left + pad;
     const baseY = top + insetH - pad;
 
-    const maxX = world.totalW_mm || 1;
+    const scale = world.mmToPx || 1;
+    const maxX = Math.min(world.totalW_mm || 1, innerW / scale);
     const tipSmallLen = cfg.tipSmallLen_mm || 52;
     const tipLargeLen = cfg.tipLargeLen_mm || 90;
     const plateZ = cfg.plateH_mm || 16;
@@ -1775,19 +1795,33 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       pipAInfo.headZ,
       pipRInfo.headZ
     );
-    const sx = innerW / maxX;
-    const sz = innerH / maxZ;
+    const visibleZ = Math.min(maxZ, innerH / scale);
+    const sx = scale;
+    const sz = scale;
 
+    ctx.strokeStyle = "rgba(232,240,247,0.25)";
+    for (let x=0; x<=maxX; x+=10){
+      const px = baseX + x * sx;
+      ctx.strokeStyle = (x % 50 === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(px, baseY); ctx.lineTo(px, baseY - visibleZ * sz); ctx.stroke();
+    }
+    for (let z=0; z<=visibleZ; z+=10){
+      const pz = baseY - z * sz;
+      ctx.strokeStyle = (z % 50 === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(baseX, pz); ctx.lineTo(baseX + maxX * sx, pz); ctx.stroke();
+    }
     ctx.strokeStyle = "rgba(232,240,247,0.25)";
     ctx.beginPath();
     ctx.moveTo(baseX, baseY);
-    ctx.lineTo(baseX + innerW, baseY);
+    ctx.lineTo(baseX + maxX * sx, baseY);
     ctx.stroke();
 
     for (const mod of world.modules){
+      const visibleW = Math.min(mod.w, maxX - mod.x);
+      if (visibleW <= 0) continue;
       const x = baseX + mod.x * sx;
-      const w = mod.w * sx;
-      const h = mod.h * sz;
+      const w = visibleW * sx;
+      const h = Math.min(mod.h, visibleZ) * sz;
       ctx.fillStyle = "rgba(59,130,246,0.12)";
       ctx.strokeStyle = "rgba(59,130,246,0.4)";
       ctx.fillRect(x, baseY - h, w, h);
@@ -1795,9 +1829,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     }
 
     const drawSurface = (label, xCenter, wMm, zMm, color) => {
-      const x = baseX + (xCenter - wMm/2) * sx;
-      const w = wMm * sx;
-      const h = zMm * sz;
+      const wClamp = Math.min(wMm, maxX);
+      const xStart = Math.max(0, xCenter - wMm/2);
+      if (xStart >= maxX || wClamp <= 0) return;
+      const x = baseX + xStart * sx;
+      const w = Math.min(wMm, maxX - xStart) * sx;
+      const h = Math.min(zMm, visibleZ) * sz;
       ctx.fillStyle = color;
       ctx.strokeStyle = "rgba(232,240,247,0.3)";
       ctx.fillRect(x, baseY - h, w, h);
@@ -1818,8 +1855,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     drawSurface("Placa ST1", world.plateSt1.x, plateW, plateZ, "rgba(56,189,248,0.18)");
     drawSurface("Placa ST2", world.plateSt2.x, plateW, plateZ, "rgba(56,189,248,0.18)");
     drawSurface("Rack", world.rackPipetteOrigin.x, rackW, rackZ, "rgba(34,197,94,0.18)");
-    drawSurface("Reservorio", world.reservoir.x, 80, reservoirZ, "rgba(148,163,184,0.18)");
-    drawSurface("Waste", world.waste.x, 80, wasteZ, "rgba(239,68,68,0.18)");
+    drawSurface("Reservorio M3", world.reservoir.x, 80, reservoirZ, "rgba(148,163,184,0.18)");
+    drawSurface("Waste M2", world.wasteA.x, 80, wasteZ, "rgba(239,68,68,0.18)");
+    drawSurface("Waste M3", world.wasteR.x, 80, wasteZ, "rgba(239,68,68,0.18)");
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, tipBoxZ + tipSmallLen, "rgba(147,197,253,0.14)");
     if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, tipBoxZ + tipLargeLen, "rgba(74,222,128,0.14)");
 
@@ -1830,8 +1868,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ];
 
     for (const h of heads){
+      if (h.x > maxX || h.z > visibleZ) continue;
       const hx = baseX + h.x * sx;
-      const hy = baseY - h.z * sz;
+      const hy = baseY - Math.min(h.z, visibleZ) * sz;
       ctx.fillStyle = h.color;
       ctx.beginPath();
       ctx.arc(hx, hy, 4, 0, Math.PI*2);
@@ -1874,7 +1913,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseX = left + pad;
     const baseY = top + insetH - pad;
 
-    const maxY = world.totalH_mm || 1;
+    const scale = world.mmToPx || 1;
+    const maxY = Math.min(world.totalH_mm || 1, innerW / scale);
     const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
     const pipAInfo = getPipetteZ(sim.pipA, true);
     const pipRInfo = getPipetteZ(sim.pipR, false);
@@ -1885,19 +1925,33 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       pipAInfo.headZ,
       pipRInfo.headZ
     );
-    const sy = innerW / maxY;
-    const sz = innerH / maxZ;
+    const visibleZ = Math.min(maxZ, innerH / scale);
+    const sy = scale;
+    const sz = scale;
 
+    ctx.strokeStyle = "rgba(232,240,247,0.25)";
+    for (let y=0; y<=maxY; y+=10){
+      const py = baseX + y * sy;
+      ctx.strokeStyle = (y % 50 === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(py, baseY); ctx.lineTo(py, baseY - visibleZ * sz); ctx.stroke();
+    }
+    for (let z=0; z<=visibleZ; z+=10){
+      const pz = baseY - z * sz;
+      ctx.strokeStyle = (z % 50 === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(baseX, pz); ctx.lineTo(baseX + maxY * sy, pz); ctx.stroke();
+    }
     ctx.strokeStyle = "rgba(232,240,247,0.25)";
     ctx.beginPath();
     ctx.moveTo(baseX, baseY);
-    ctx.lineTo(baseX + innerW, baseY);
+    ctx.lineTo(baseX + maxY * sy, baseY);
     ctx.stroke();
 
     for (const mod of world.modules){
+      const visibleW = Math.min(mod.d, maxY - mod.y);
+      if (visibleW <= 0) continue;
       const y = baseX + mod.y * sy;
-      const w = mod.d * sy;
-      const h = mod.h * sz;
+      const w = visibleW * sy;
+      const h = Math.min(mod.h, visibleZ) * sz;
       ctx.fillStyle = "rgba(59,130,246,0.12)";
       ctx.strokeStyle = "rgba(59,130,246,0.4)";
       ctx.fillRect(y, baseY - h, w, h);
@@ -1905,9 +1959,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     }
 
     const drawSurface = (label, yCenter, dMm, zMm, color) => {
-      const y = baseX + (yCenter - dMm/2) * sy;
-      const w = dMm * sy;
-      const h = zMm * sz;
+      const wClamp = Math.min(dMm, maxY);
+      const yStart = Math.max(0, yCenter - dMm/2);
+      if (yStart >= maxY || wClamp <= 0) return;
+      const y = baseX + yStart * sy;
+      const w = Math.min(dMm, maxY - yStart) * sy;
+      const h = Math.min(zMm, visibleZ) * sz;
       ctx.fillStyle = color;
       ctx.strokeStyle = "rgba(232,240,247,0.3)";
       ctx.fillRect(y, baseY - h, w, h);
@@ -1928,8 +1985,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     drawSurface("Placa ST1", world.plateSt1.y, plateD, cfg.plateH_mm, "rgba(56,189,248,0.18)");
     drawSurface("Placa ST2", world.plateSt2.y, plateD, cfg.plateH_mm, "rgba(56,189,248,0.18)");
     drawSurface("Rack", world.rackPipetteOrigin.y, rackD, cfg.rackH_mm, "rgba(34,197,94,0.18)");
-    drawSurface("Reservorio", world.reservoir.y, 80, cfg.reservoirH_mm, "rgba(148,163,184,0.18)");
-    drawSurface("Waste", world.waste.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
+    drawSurface("Reservorio M3", world.reservoir.y, 80, cfg.reservoirH_mm, "rgba(148,163,184,0.18)");
+    drawSurface("Waste M2", world.wasteA.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
+    drawSurface("Waste M3", world.wasteR.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, cfg.tipBoxH_mm + cfg.tipSmallLen_mm, "rgba(147,197,253,0.14)");
     if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, cfg.tipBoxH_mm + cfg.tipLargeLen_mm, "rgba(74,222,128,0.14)");
 
@@ -1940,8 +1998,9 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ];
 
     for (const h of heads){
+      if (h.y > maxY || h.z > visibleZ) continue;
       const hy = baseX + h.y * sy;
-      const hz = baseY - h.z * sz;
+      const hz = baseY - Math.min(h.z, visibleZ) * sz;
       ctx.fillStyle = h.color;
       ctx.beginPath();
       ctx.arc(hy, hz, 4, 0, Math.PI*2);
@@ -2226,22 +2285,61 @@ if (world.modules.length >= 3){
     if (sim.collector.rack) drawRack(sim.collector.rack);
     if (sim.pipA.rack && sim.pipA.rack !== sim.collector.rack) drawRack(sim.pipA.rack);
 
+    const beltY = world.rackCollectOrigin.y;
+    const beltTL = mm2px({x: world.modules[0].x + 60, y: beltY - 12});
+    rect(beltTL.x, beltTL.y, (world.modules[0].w - 120) * world.mmToPx, 24 * world.mmToPx, "rgba(34,48,65,0.7)", "rgba(15,23,35,0.25)", 1);
+    drawLabel("Cinta racks M1", beltTL.x + 8, beltTL.y - 6);
+
     const rq = mm2px(world.rackPipetteOrigin);
     drawLabel(`Cola racks: ${sim.rackQueue.length}`, rq.x-20, rq.y+90);
+
+    const inM1 = mm2px(world.rackInputM1);
+    rect(inM1.x-16, inM1.y-10, 32, 20, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Entrada racks", inM1.x-38, inM1.y+22);
+
+    const exitM1 = mm2px(world.rackExitM1);
+    rect(exitM1.x-10, exitM1.y-16, 20, 32, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Compuerta rack → M2", exitM1.x-64, exitM1.y-22);
+
+    const rackInM2 = mm2px(world.rackInM2);
+    rect(rackInM2.x-10, rackInM2.y-16, 20, 32, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Rack entrada M2", rackInM2.x-44, rackInM2.y-22);
+
+    const rackOutM2 = mm2px(world.rackOutM2);
+    rect(rackOutM2.x-12, rackOutM2.y-10, 24, 20, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Rack salida M2", rackOutM2.x-42, rackOutM2.y+22);
+
+    const plateInM2 = mm2px(world.plateInM2);
+    rect(plateInM2.x-14, plateInM2.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Placas in/out M2", plateInM2.x-50, plateInM2.y+22);
+
+    const plateInM3 = mm2px(world.plateInM3);
+    rect(plateInM3.x-10, plateInM3.y-16, 20, 32, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Placa entrada M3", plateInM3.x-46, plateInM3.y-22);
+
+    const plateOutM3 = mm2px(world.plateOutM3);
+    rect(plateOutM3.x-14, plateOutM3.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Placa salida M3", plateOutM3.x-46, plateOutM3.y+22);
 
     // markers
     const res = mm2px(world.reservoir);
     circle(res.x,res.y,14,"rgba(148,163,184,0.10)");
-    drawLabel("Reservorio", res.x-32, res.y-20);
+    drawLabel("Reservorio M3", res.x-42, res.y-20);
 
-    const wst = mm2px(world.waste);
-    circle(wst.x,wst.y,13,"rgba(251,113,133,0.08)");
-    drawLabel("Waste", wst.x-16, wst.y-18);
-    if (sim.pipA.tipDropT > 0 || sim.pipR.tipDropT > 0){
+    const wA = mm2px(world.wasteA);
+    circle(wA.x,wA.y,13,"rgba(251,113,133,0.08)");
+    drawLabel("Waste M2", wA.x-24, wA.y-18);
+
+    const wR = mm2px(world.wasteR);
+    circle(wR.x,wR.y,13,"rgba(251,113,133,0.08)");
+    drawLabel("Waste M3", wR.x-24, wR.y-18);
+    if (sim.pipA.tipDropT > 0){
       const tA = clamp(sim.pipA.tipDropT / 0.6, 0, 1);
+      if (tA > 0) drawTipDrop(wA.x, wA.y - 6 + (1 - tA) * 16, "#fbbf24", tA);
+    }
+    if (sim.pipR.tipDropT > 0){
       const tR = clamp(sim.pipR.tipDropT / 0.6, 0, 1);
-      if (tA > 0) drawTipDrop(wst.x - 10, wst.y - 6 + (1 - tA) * 16, "#fbbf24", tA);
-      if (tR > 0) drawTipDrop(wst.x + 10, wst.y - 6 + (1 - tR) * 16, "#4ade80", tR);
+      if (tR > 0) drawTipDrop(wR.x, wR.y - 6 + (1 - tR) * 16, "#4ade80", tR);
     }
 
     const pm = mm2px(world.plateMag);
