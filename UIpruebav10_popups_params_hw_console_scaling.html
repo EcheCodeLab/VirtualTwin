@@ -61,6 +61,20 @@ body.panel-hidden #miniBar { display:flex; }
     .hwname { display:flex; align-items:center; font-size:12px; color:#cfe1f3; }
     .hwst { font-size:12px; color: var(--muted); }
 
+    .canvas-wrap { position: relative; padding: 10px 12px 12px; }
+    .dashboard { display:flex; flex-direction:column; gap:6px; background:#0b1017; border:1px solid #1f2a37; border-radius:12px; padding:8px 10px; margin-bottom:10px; }
+    .dashboard .row { justify-content:space-between; }
+    .dashboard .title { font-size:12px; color: var(--muted); }
+    .dashboard-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+    .dash-card { border:1px solid #1f2a37; border-radius:10px; padding:8px; background:#0b1017; }
+    .dash-card .k { font-size:11px; color: var(--muted); }
+    .dash-card .v { font-size:13px; margin-top:4px; font-variant-numeric: tabular-nums; }
+    .risk-pill { display:inline-flex; gap:6px; align-items:center; padding:2px 8px; border-radius:999px; border:1px solid #243244; font-size:11px; }
+    .risk-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+    .eng-tooltip { position:absolute; pointer-events:none; background:rgba(11,16,23,0.92); border:1px solid #243244; color:var(--text);
+                   padding:6px 8px; border-radius:8px; font-size:11px; line-height:1.35; transform: translate(10px,10px); white-space:nowrap; z-index:10; display:none; }
+    .eng-axis { font-size:11px; color: var(--muted); }
     
     /* Mini toolbar when panel is hidden */
     #miniBar{ display:none; position:fixed; top:72px; right:14px; z-index:50; gap:8px; flex-wrap:wrap;
@@ -87,13 +101,49 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     <button id="miniPopConfig">Parámetros</button>
   <button id="miniPopHW">Electrónica</button>
   <button id="miniPopLog">Consola</button>
+  <button id="miniPopLayout">Layout/I/O</button>
 <button id="miniShowPanel">Mostrar panel</button>
 </div>
 
 <div class="wrap">
   <section class="card">
     <h2>Vista del sistema (simulación)</h2>
-    <canvas id="sim" width="1300" height="680"></canvas>
+    <div class="canvas-wrap">
+      <div class="dashboard" id="dashboard">
+        <div class="row">
+          <div class="title">Executive dashboard</div>
+          <div class="small" id="dashEta">ETA: --</div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="dash-card">
+            <div class="k">Throughput</div>
+            <div class="v" id="dashThroughput">-- fracc/h</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Consumo</div>
+            <div class="v" id="dashConsumables">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Waste</div>
+            <div class="v" id="dashWaste">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Tips</div>
+            <div class="v" id="dashTips">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Placas / racks</div>
+            <div class="v" id="dashPlates">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Riesgo</div>
+            <div class="v" id="dashRisk">--</div>
+          </div>
+        </div>
+      </div>
+      <canvas id="sim" width="1300" height="680"></canvas>
+      <div class="eng-tooltip" id="engTooltip"></div>
+    </div>
   </section>
 
   <aside class="card">
@@ -107,6 +157,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         <button id="btnPopConfig">Ventana separada: parámetros</button>
         <button id="btnPopHW">Ventana separada: electrónica</button>
         <button id="btnPopLog">Ventana separada: consola</button>
+        <button id="btnPopLayout">Ventana separada: Layout/I/O</button>
         <button id="btnTogglePanel">Ocultar panel</button>
       </div>
 
@@ -124,6 +175,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         <div class="t"><input id="showElec" type="checkbox" checked><span>Overlay electrónica</span></div>
         <div class="t"><input id="showHwLeds" type="checkbox" checked><span>Luces (LEDs)</span></div>
         <div class="t"><input id="showHwLabels" type="checkbox" checked><span>Nombres</span></div>
+        <div class="t"><input id="viewEngineering" type="checkbox"><span>Engineering mode</span></div>
       </div>
 
       <div class="grid" style="margin-bottom:12px">
@@ -287,6 +339,11 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
       <div class="hwlist" id="hwList"></div>
 
       <div class="log" id="log" style="margin-top:10px;"></div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnExportRunCsv" disabled>Export run_report.csv</button>
+        <button id="btnExportRunJson" disabled>Export run_report.json</button>
+      </div>
     </div>
   </aside>
 </div>
@@ -328,6 +385,16 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const showElecEl = el("showElec");
   const showHwLedsEl = el("showHwLeds");
   const showHwLabelsEl = el("showHwLabels");
+  const viewEngineeringEl = el("viewEngineering");
+
+  const dashThroughput = el("dashThroughput");
+  const dashEta = el("dashEta");
+  const dashConsumables = el("dashConsumables");
+  const dashWaste = el("dashWaste");
+  const dashTips = el("dashTips");
+  const dashPlates = el("dashPlates");
+  const dashRisk = el("dashRisk");
+  const engTooltip = el("engTooltip");
 
   // ---------- Panel docking (hide aside to maximize canvas) ----------
   const btnTogglePanel = el("btnTogglePanel");
@@ -340,6 +407,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const miniPopConfig = document.getElementById("miniPopConfig");
   const miniPopHW = document.getElementById("miniPopHW");
   const miniPopLog = document.getElementById("miniPopLog");
+  const miniPopLayout = document.getElementById("miniPopLayout");
 
   // ---------- Responsive canvas scaling (uniform; evita deformación) ----------
   const BASE_CANVAS_W = canvas.width;
@@ -363,6 +431,42 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
 
   window.addEventListener("resize", resizeSimCanvas);
   window.addEventListener("orientationchange", resizeSimCanvas);
+
+  // --- NEW --- Engineering mouse tooltip
+  function getCanvasMousePos(ev){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (ev.clientX - rect.left) * scaleX;
+    const y = (ev.clientY - rect.top) * scaleY;
+    return { x, y };
+  }
+
+  function updateEngTooltip(ev){
+    if (!viewEngineeringEl.checked){
+      engTooltip.style.display = "none";
+      return;
+    }
+    const px = getCanvasMousePos(ev);
+    const mm = { x: px.x / world.mmToPx, y: px.y / world.mmToPx };
+    updateEngineeringHover(mm, px);
+    const mod = engState.closestModule;
+    if (!mod){
+      engTooltip.style.display = "none";
+      return;
+    }
+    engTooltip.innerHTML = `<b>${mod.name}</b><br/>mm: ${mm.x.toFixed(1)}, ${mm.y.toFixed(1)}<br/>px: ${px.x.toFixed(0)}, ${px.y.toFixed(0)}`;
+    engTooltip.style.display = "block";
+    engTooltip.style.left = `${px.x}px`;
+    engTooltip.style.top = `${px.y}px`;
+  }
+
+  function hideEngTooltip(){
+    engTooltip.style.display = "none";
+  }
+
+  canvas.addEventListener("mousemove", updateEngTooltip);
+  canvas.addEventListener("mouseleave", hideEngTooltip);
 
 
   let panelHiddenManual = false;
@@ -397,6 +501,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   if (miniPopConfig) miniPopConfig.addEventListener("click", () => openCfgPopup());
   if (miniPopHW) miniPopHW.addEventListener("click", () => openHWPopup());
   if (miniPopLog) miniPopLog.addEventListener("click", () => openLogPopup());
+  if (miniPopLayout) miniPopLayout.addEventListener("click", () => openLayoutPopup());
 
   applyPanelState();
   resizeSimCanvas();
@@ -497,6 +602,56 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
 
   const mm2px = (p)=>({ x: p.x*world.mmToPx, y: p.y*world.mmToPx });
 
+  // --- NEW --- Engineering layout model (separado de world)
+  let layout = { modules: [] };
+
+  function buildLayoutFromWorld(){
+    const modules = [
+      { id: "column_out", name: "Salida columnas", x_mm: world.columnOut.x-20, y_mm: world.columnOut.y-20, w_mm: 80, h_mm: 60, z_mm: 0, notes: "Válvula + salida columnas" },
+      { id: "collector_home", name: "Colector home", x_mm: world.collectorHome.x-30, y_mm: world.collectorHome.y-30, w_mm: 90, h_mm: 90, z_mm: 0, notes: "Cabezal colector" },
+      { id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x-40, y_mm: world.rackCollectOrigin.y-40, w_mm: 140, h_mm: 140, z_mm: 0, notes: "Rack entrada" },
+      { id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x-40, y_mm: world.rackPipetteOrigin.y-40, w_mm: 140, h_mm: 140, z_mm: 0, notes: "Rack en estación" },
+      { id: "pipA", name: "Pipeta A", x_mm: world.pipAHome.x-40, y_mm: world.pipAHome.y-40, w_mm: 90, h_mm: 90, z_mm: 120, notes: "Alícuotas" },
+      { id: "pipR", name: "Pipeta R", x_mm: world.pipRHome.x-40, y_mm: world.pipRHome.y-40, w_mm: 90, h_mm: 90, z_mm: 120, notes: "Reactivo" },
+      { id: "plate_st1", name: "Placa ST1", x_mm: world.plateSt1.x-55, y_mm: world.plateSt1.y-55, w_mm: 130, h_mm: 130, z_mm: 0, notes: "Estación 1" },
+      { id: "plate_st2", name: "Placa ST2", x_mm: world.plateSt2.x-55, y_mm: world.plateSt2.y-55, w_mm: 130, h_mm: 130, z_mm: 0, notes: "Estación 2" },
+      { id: "plate_buffer", name: "Buffer placas", x_mm: world.plateBufferPos.x-45, y_mm: world.plateBufferPos.y-45, w_mm: 110, h_mm: 110, z_mm: 0, notes: "Buffer intermedio" },
+      { id: "plate_stack", name: "Stack final", x_mm: world.plateStackPos.x-45, y_mm: world.plateStackPos.y-45, w_mm: 110, h_mm: 110, z_mm: 0, notes: "Stack final" },
+      { id: "reservoir", name: "Reservorio", x_mm: world.reservoir.x-35, y_mm: world.reservoir.y-35, w_mm: 90, h_mm: 90, z_mm: 0, notes: "Reactivo" },
+      { id: "waste", name: "Waste", x_mm: world.waste.x-35, y_mm: world.waste.y-35, w_mm: 90, h_mm: 90, z_mm: 0, notes: "Descarte" },
+      { id: "wash", name: "Waste lavado", x_mm: world.washWaste.x-30, y_mm: world.washWaste.y-30, w_mm: 80, h_mm: 80, z_mm: 0, notes: "Lavado columnas" },
+      { id: "plate_mag", name: "Mag. placas", x_mm: world.plateMag.x-35, y_mm: world.plateMag.y-35, w_mm: 90, h_mm: 90, z_mm: 0, notes: "Magazine placas" },
+      { id: "rack_mag", name: "Mag. racks", x_mm: world.rackMag.x-35, y_mm: world.rackMag.y-35, w_mm: 90, h_mm: 90, z_mm: 0, notes: "Magazine racks" },
+      { id: "controller", name: "Controlador", x_mm: world.controllerBox.x-30, y_mm: world.controllerBox.y-30, w_mm: 80, h_mm: 80, z_mm: 0, notes: "Electrónica" }
+    ];
+
+    world.smallBoxTLs.forEach((tl, idx) => {
+      modules.push({ id: `tips_small_${idx+1}`, name: `Tip box SMALL ${idx+1}`, x_mm: tl.x-8, y_mm: tl.y-8, w_mm: 120, h_mm: 90, z_mm: 0, notes: "Cajas tips SMALL" });
+    });
+    world.largeBoxTLs.forEach((tl, idx) => {
+      modules.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x-8, y_mm: tl.y-8, w_mm: 95, h_mm: 70, z_mm: 0, notes: "Cajas tips LARGE" });
+    });
+
+    layout.modules = modules;
+  }
+
+  // --- NEW --- I/O map base
+  const ioMap = [
+    { id: "io_drop_sensor", label: "Sensor gotas", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_12", update_hz: 50, latency_ms: 10, criticality: "HIGH", notes: "Cuenta gotas en colector" },
+    { id: "io_valve_servo", label: "Servo válvula", kind: "ACTUATOR", signal: "PWM", endpoint: "MCU:PWM_2", update_hz: 30, latency_ms: 25, criticality: "MED", notes: "Selector de columna" },
+    { id: "io_collector_xy", label: "Motores XY colector", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_COL", update_hz: 100, latency_ms: 12, criticality: "HIGH", notes: "Interpolación lineal" },
+    { id: "io_pipA_xy", label: "Motores XY pipeta A", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPA", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Alícuotas" },
+    { id: "io_pipR_xy", label: "Motores XY pipeta R", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPR", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Reactivo" },
+    { id: "io_tip_sensor_A", label: "Sensor tip A", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_05", update_hz: 20, latency_ms: 15, criticality: "MED", notes: "Detección tip A" },
+    { id: "io_tip_sensor_R", label: "Sensor tip R", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_06", update_hz: 20, latency_ms: 15, criticality: "MED", notes: "Detección tip R" },
+    { id: "io_res_level", label: "Sensor nivel reservorio", kind: "SENSOR", signal: "AI", endpoint: "PLC:AI_02", update_hz: 5, latency_ms: 50, criticality: "HIGH", notes: "Nivel reactivo" },
+    { id: "io_waste_level", label: "Sensor nivel descarte", kind: "SENSOR", signal: "AI", endpoint: "PLC:AI_03", update_hz: 5, latency_ms: 50, criticality: "HIGH", notes: "Tips + líquido" },
+    { id: "io_rack_conv", label: "Motor cinta rack", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_08", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado racks" },
+    { id: "io_plate_conv", label: "Motor cinta placas", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_09", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado placas" }
+  ];
+
+  buildLayoutFromWorld();
+
   // ---------- Tip positions ----------
   function currentSmallBoxTL() {
     const i = Math.min(sim.smallBoxSlot, world.smallBoxTLs.length - 1);
@@ -570,6 +725,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     mode: "IDLE",
     time: 0,
     alarm: null,
+
+    runReport: [],
 
     plateSupply: cfg.plateSupply,
     rackSupply: cfg.rackSupply,
@@ -724,6 +881,14 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
           C.rack.frac_uL += newDrops * cfg.drop_uL;
         }
         if (C.rack.frac_uL >= cfg.target_uL){
+          sim.runReport.push({
+            columnIdx: C.currentColumnIdx,
+            fracIndex: C.rack.fracIndex,
+            tubeIndex: C.rack.tubeIndex,
+            timestamp_sim: sim.time,
+            volumen_uL: cfg.target_uL,
+            rackId: C.rack.id
+          });
           C.rack.tubes_uL[C.rack.tubeIndex] += cfg.target_uL;
           C.rack.fracIndex++;
           C.rack.tubeIndex++;
@@ -1177,6 +1342,88 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     ctx.stroke(); ctx.restore();
   }
 
+  // --- NEW --- Engineering overlay helpers
+  const engState = {
+    mouseMM: null,
+    mousePx: null,
+    closestModule: null
+  };
+
+  function drawEngineeringGrid(){
+    const spacing = 50;
+    const sub = 10;
+    const maxXmm = canvas.width / world.mmToPx;
+    const maxYmm = canvas.height / world.mmToPx;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+    for (let x=0; x<=maxXmm; x+=sub){
+      const px = x*world.mmToPx;
+      ctx.strokeStyle = (x % spacing === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+    }
+    for (let y=0; y<=maxYmm; y+=sub){
+      const py = y*world.mmToPx;
+      ctx.strokeStyle = (y % spacing === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEngineeringAxes(){
+    ctx.save();
+    ctx.strokeStyle = "rgba(232,240,247,0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(30, 30); ctx.lineTo(90, 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(30, 30); ctx.lineTo(30, 90); ctx.stroke();
+    ctx.fillStyle = "rgba(232,240,247,0.7)";
+    ctx.font = "11px system-ui";
+    ctx.fillText("X→", 92, 34);
+    ctx.fillText("Y↓", 20, 92);
+    ctx.fillText("(0,0)", 36, 24);
+    ctx.restore();
+  }
+
+  function drawLayoutBoxes(){
+    for (const mod of layout.modules){
+      const px = mm2px({ x: mod.x_mm, y: mod.y_mm });
+      const w = mod.w_mm * world.mmToPx;
+      const h = mod.h_mm * world.mmToPx;
+      ctx.save();
+      ctx.fillStyle = "rgba(59,130,246,0.08)";
+      ctx.strokeStyle = "rgba(59,130,246,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(px.x, px.y, w, h);
+      ctx.strokeRect(px.x, px.y, w, h);
+      ctx.fillStyle = "rgba(232,240,247,0.75)";
+      ctx.font = "11px system-ui";
+      ctx.fillText(mod.name, px.x + 4, px.y + 14);
+      ctx.restore();
+    }
+  }
+
+  function distanceToBox(mm, mod){
+    const dx = Math.max(mod.x_mm - mm.x, 0, mm.x - (mod.x_mm + mod.w_mm));
+    const dy = Math.max(mod.y_mm - mm.y, 0, mm.y - (mod.y_mm + mod.h_mm));
+    return Math.hypot(dx, dy);
+  }
+
+  function updateEngineeringHover(mm, px){
+    if (!layout.modules.length) return;
+    let best = null;
+    let bestD = Infinity;
+    for (const mod of layout.modules){
+      const d = distanceToBox(mm, mod);
+      if (d < bestD){
+        bestD = d;
+        best = mod;
+      }
+    }
+    engState.mouseMM = mm;
+    engState.mousePx = px;
+    engState.closestModule = best;
+  }
+
   function drawPlateAt(posMM, plate){
     const tl = mm2px({x: posMM.x-18, y: posMM.y-18});
     const w = (12-1)*world.wellPitch*world.mmToPx + 36;
@@ -1297,6 +1544,12 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   function draw(){
     ctx.clearRect(0,0,canvas.width, canvas.height);
     ctx.save(); ctx.fillStyle="#0b0f14"; ctx.fillRect(0,0,canvas.width, canvas.height); ctx.restore();
+
+    if (viewEngineeringEl.checked){
+      drawEngineeringGrid();
+      drawEngineeringAxes();
+      drawLayoutBoxes();
+    }
 
     // conveyor line
     ctx.save();
@@ -1451,11 +1704,117 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     }
   }
 
+  // --- NEW --- Dashboard + run report UI
+  function formatEta(seconds){
+    if (!isFinite(seconds) || seconds < 0) return "--";
+    const s = Math.round(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  }
+
+  function updateDashboard(){
+    const Q = cfg.drop_uL * cfg.dropRate_hz;
+    const tFrac = Q > 0 ? (cfg.target_uL / Q) : Infinity;
+    const throughput = (tFrac > 0 && isFinite(tFrac)) ? (3600 / tFrac) : 0;
+    const totalFractions = cfg.numColumns * cfg.N * cfg.M;
+    const doneFractions = sim.runReport.length;
+    const remainingFractions = Math.max(0, totalFractions - doneFractions);
+    const etaSec = (throughput > 0) ? (remainingFractions / throughput) * 3600 : Infinity;
+
+    dashThroughput.textContent = `${throughput.toFixed(1)} fracc/h`;
+    dashEta.textContent = `ETA: ${formatEta(etaSec)} (${doneFractions}/${totalFractions})`;
+
+    const tipsSmallUsed = sim.smallBoxSlot * 96 + (96 - tipsRemaining(sim.tipsSmallUsed));
+    const tipsSmallTotal = sim.smallBoxesTotal * 96;
+    const tipsLargeUsed = sim.largeBoxSlot * 24 + (24 - tipsRemaining(sim.tipsLargeUsed));
+    const tipsLargeTotal = sim.largeBoxesTotal * 24;
+    const tipsSmallRemaining = Math.max(0, tipsSmallTotal - tipsSmallUsed);
+    const tipsLargeRemaining = Math.max(0, tipsLargeTotal - tipsLargeUsed);
+
+    const platesUsed = Math.max(0, cfg.plateSupply - sim.plateSupply);
+    const racksUsed = Math.max(0, cfg.rackSupply - sim.rackSupply);
+
+    dashConsumables.textContent = `Tips S/L usados: ${tipsSmallUsed}/${tipsLargeUsed}`;
+    dashTips.textContent = `Tips S/L rem: ${tipsSmallRemaining}/${tipsLargeRemaining}`;
+    dashPlates.textContent = `Placas usadas ${platesUsed} · Racks usados ${racksUsed}`;
+    dashWaste.textContent = `Tips ${sim.wasteTipCount}/${cfg.wasteTipCap} · Liq ${Math.round(sim.wasteLiquid_uL)}/${cfg.wasteLiqCap_uL} µL`;
+
+    const wasteRatio = Math.max(sim.wasteTipCount / cfg.wasteTipCap, sim.wasteLiquid_uL / cfg.wasteLiqCap_uL);
+    const reservoirRatio = cfg.reagentReservoirStart_uL > 0 ? (sim.reservoir_uL / cfg.reagentReservoirStart_uL) : 0;
+    const tipsRatio = Math.min(
+      tipsSmallTotal ? (tipsSmallRemaining / tipsSmallTotal) : 1,
+      tipsLargeTotal ? (tipsLargeRemaining / tipsLargeTotal) : 1
+    );
+
+    const riskBadge = (label, level) => {
+      const col = level === "ALARM" ? "#fb7185" : level === "WARN" ? "#fbbf24" : "#4ade80";
+      return `<span class="risk-pill"><span class="risk-dot" style="background:${col}"></span>${label}:${level}</span>`;
+    };
+
+    const riskWaste = wasteRatio > 0.95 ? "ALARM" : (wasteRatio > 0.8 ? "WARN" : "OK");
+    const riskRes = reservoirRatio < 0.15 ? "ALARM" : (reservoirRatio < 0.35 ? "WARN" : "OK");
+    const riskTips = tipsRatio < 0.1 ? "ALARM" : (tipsRatio < 0.25 ? "WARN" : "OK");
+
+    dashRisk.innerHTML = [
+      riskBadge("Waste", riskWaste),
+      riskBadge("Res", riskRes),
+      riskBadge("Tips", riskTips)
+    ].join(" ");
+  }
+
+  function updateRunReportButtons(){
+    const done = sim.mode === "DONE";
+    el("btnExportRunCsv").disabled = !done;
+    el("btnExportRunJson").disabled = !done;
+  }
+
   // ---------- Control ----------
+  // --- NEW --- Run report export helpers
+  function downloadText(filename, text){
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportRunReportJson(){
+    const payload = {
+      timestamp: new Date().toISOString(),
+      runReport: sim.runReport
+    };
+    downloadText("run_report.json", JSON.stringify(payload, null, 2));
+  }
+
+  function exportRunReportCsv(){
+    const header = ["columnIdx","fracIndex","tubeIndex","timestamp_sim","volumen_uL","rackId"];
+    const lines = [header.join(",")];
+    for (const row of sim.runReport){
+      lines.push([
+        row.columnIdx,
+        row.fracIndex,
+        row.tubeIndex,
+        row.timestamp_sim.toFixed(3),
+        row.volumen_uL,
+        row.rackId
+      ].join(","));
+    }
+    downloadText("run_report.csv", lines.join("\n"));
+  }
+
   function resetAll(){
     sim.mode="IDLE";
     sim.time=0;
     sim.alarm=null;
+    sim.runReport = [];
 
     sim.plateSupply = cfg.plateSupply;
     sim.rackSupply = cfg.rackSupply;
@@ -1562,6 +1921,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   let popCfg = null;
   let popHW = null;
   let popLog = null;
+  let popLayout = null;
 
   function popupBlocked(){
     alert("El navegador bloqueó la ventana emergente.\n\nTip: habilitá pop-ups para este archivo (file://) y reintentá usando el botón.");
@@ -1597,7 +1957,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
       timeScale: parseFloat(timeScaleEl.value),
       showElec: !!showElecEl.checked,
       showHwLeds: !!showHwLedsEl.checked,
-      showHwLabels: !!showHwLabelsEl.checked
+      showHwLabels: !!showHwLabelsEl.checked,
+      viewEngineering: !!viewEngineeringEl.checked
     };
   }
 
@@ -1637,6 +1998,16 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     _lastLogPush = t;
     if (!logEl) return;
     safePost(popLog, { __vt:1, type:"LOG_SNAPSHOT", payload: { html: logEl.innerHTML }});
+  }
+
+  // --- NEW --- Snapshot layout/I-O
+  function pushLayoutSnapshot(force=false){
+    safePost(popLayout, { __vt:1, type:"LAYOUT_SNAPSHOT", payload: {
+      layout,
+      ioMap,
+      world,
+      viewEngineering: !!viewEngineeringEl.checked
+    }});
   }
 
   function buildCfgPopupHTML(){
@@ -2054,6 +2425,242 @@ ${closeScript}
 </body></html>`;
   }
 
+  // --- NEW --- Layout/I-O popup
+  function buildLayoutPopupHTML(){
+    const closeScript = "</scr" + "ipt>";
+    const openScript  = "<scr" + "ipt>";
+
+    return `<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Virtual Twin – Layout/I-O</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#121a24; --muted:#9fb0c0; --text:#e8f0f7; --ok:#4ade80; --warn:#fbbf24; --bad:#fb7185; }
+  body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background:var(--bg); color:var(--text); }
+  header{ padding:12px 14px; border-bottom:1px solid #1f2a37; display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;}
+  header h1{ font-size:14px; margin:0; font-weight:650; }
+  .pill{ font-size:12px; color:var(--muted); border:1px solid #243244; padding:4px 8px; border-radius:999px; }
+  .wrap{ padding:12px; display:grid; gap:12px; }
+  .card{ background:var(--panel); border:1px solid #1f2a37; border-radius:14px; overflow:hidden; }
+  .card h2{ font-size:12px; margin:0; padding:10px 12px; border-bottom:1px solid #1f2a37; color:var(--muted); font-weight:650; }
+  .card .content{ padding:12px; }
+  button{ border:1px solid #243244; background:#0b1017; color:var(--text); padding:8px 10px; border-radius:10px; cursor:pointer; }
+  button:hover{ border-color:#3a4c66; }
+  button.primary{ background:#132034; border-color:#35507a; }
+  button.danger{ border-color:#5b2533; background:#1a0f13; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  th, td{ border-bottom:1px solid #1f2a37; padding:6px 6px; text-align:left; }
+  th{ color:var(--muted); font-weight:600; position:sticky; top:0; background:#121a24; }
+  input, select{ width:100%; padding:6px 8px; border-radius:8px; border:1px solid #253244; background:#0b1017; color:var(--text); font-size:12px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .scroll{ max-height:280px; overflow:auto; border:1px solid #1f2a37; border-radius:12px; }
+  .small{ font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <h1>Layout / I-O map</h1>
+    <span class="pill" id="engState">Engineering: OFF</span>
+  </div>
+  <div class="row">
+    <button id="apply" class="primary">Apply layout</button>
+    <button id="refresh">Refresh</button>
+    <button id="export">Export deck.json</button>
+    <button id="close" class="danger">Cerrar</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="card">
+    <h2>Layout de módulos</h2>
+    <div class="content">
+      <div class="row" style="margin-bottom:8px;">
+        <label class="small"><input id="toggleEngineering" type="checkbox" /> Engineering ON</label>
+        <span class="small">Editar coordenadas/tamaños en mm.</span>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>name</th><th>x_mm</th><th>y_mm</th><th>w_mm</th><th>h_mm</th><th>z_mm</th><th>notes</th>
+            </tr>
+          </thead>
+          <tbody id="layoutBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>I/O map</h2>
+    <div class="content">
+      <div class="row" style="margin-bottom:8px;">
+        <select id="filterKind">
+          <option value="">Kind: ALL</option>
+          <option value="SENSOR">SENSOR</option>
+          <option value="ACTUATOR">ACTUATOR</option>
+        </select>
+        <select id="filterCrit">
+          <option value="">Criticality: ALL</option>
+          <option value="LOW">LOW</option>
+          <option value="MED">MED</option>
+          <option value="HIGH">HIGH</option>
+        </select>
+        <input id="filterSearch" placeholder="Buscar..." />
+      </div>
+      <div class="scroll" style="max-height:260px;">
+        <table>
+          <thead>
+            <tr>
+              <th>id</th><th>label</th><th>kind</th><th>signal</th><th>endpoint</th><th>update_hz</th><th>latency_ms</th><th>criticality</th><th>notes</th>
+            </tr>
+          </thead>
+          <tbody id="ioBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+${openScript}
+(() => {
+  let snapshot = null;
+  const layoutBody = document.getElementById("layoutBody");
+  const ioBody = document.getElementById("ioBody");
+  const engState = document.getElementById("engState");
+  const toggleEngineering = document.getElementById("toggleEngineering");
+
+  const send = (type, payload) => {
+    try { window.opener && window.opener.postMessage({__vt:1, type, payload}, "*"); } catch(_e){}
+  };
+
+  function renderLayout(modules){
+    layoutBody.innerHTML = "";
+    for (const mod of modules){
+      const tr = document.createElement("tr");
+      tr.dataset.id = mod.id;
+      tr.innerHTML = \`
+        <td><input data-field="name" value="\${mod.name}" /></td>
+        <td><input data-field="x_mm" type="number" value="\${mod.x_mm}" /></td>
+        <td><input data-field="y_mm" type="number" value="\${mod.y_mm}" /></td>
+        <td><input data-field="w_mm" type="number" value="\${mod.w_mm}" /></td>
+        <td><input data-field="h_mm" type="number" value="\${mod.h_mm}" /></td>
+        <td><input data-field="z_mm" type="number" value="\${mod.z_mm ?? ""}" /></td>
+        <td><input data-field="notes" value="\${mod.notes || ""}" /></td>\`;
+      layoutBody.appendChild(tr);
+    }
+  }
+
+  function renderIo(ioMap){
+    const kind = document.getElementById("filterKind").value;
+    const crit = document.getElementById("filterCrit").value;
+    const search = (document.getElementById("filterSearch").value || "").toLowerCase();
+
+    ioBody.innerHTML = "";
+    for (const io of ioMap){
+      if (kind && io.kind !== kind) continue;
+      if (crit && io.criticality !== crit) continue;
+      const hay = [io.id, io.label, io.signal, io.endpoint, io.notes].join(" ").toLowerCase();
+      if (search && !hay.includes(search)) continue;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = \`
+        <td>\${io.id}</td>
+        <td>\${io.label}</td>
+        <td>\${io.kind}</td>
+        <td>\${io.signal}</td>
+        <td>\${io.endpoint}</td>
+        <td>\${io.update_hz}</td>
+        <td>\${io.latency_ms}</td>
+        <td>\${io.criticality}</td>
+        <td>\${io.notes || ""}</td>\`;
+      ioBody.appendChild(tr);
+    }
+  }
+
+  function gatherLayout(){
+    const mods = [];
+    layoutBody.querySelectorAll("tr").forEach(tr => {
+      const id = tr.dataset.id;
+      const get = (field) => {
+        const input = tr.querySelector('[data-field="'+field+'"]');
+        return input ? input.value : "";
+      };
+      mods.push({
+        id,
+        name: get("name"),
+        x_mm: parseFloat(get("x_mm")) || 0,
+        y_mm: parseFloat(get("y_mm")) || 0,
+        w_mm: parseFloat(get("w_mm")) || 0,
+        h_mm: parseFloat(get("h_mm")) || 0,
+        z_mm: get("z_mm") === "" ? null : (parseFloat(get("z_mm")) || 0),
+        notes: get("notes")
+      });
+    });
+    return mods;
+  }
+
+  function fill(payload){
+    snapshot = payload || null;
+    if (!payload) return;
+    if (payload.layout && Array.isArray(payload.layout.modules)){
+      renderLayout(payload.layout.modules);
+    }
+    if (payload.ioMap) renderIo(payload.ioMap);
+    if (typeof payload.viewEngineering === "boolean"){
+      toggleEngineering.checked = payload.viewEngineering;
+      engState.textContent = "Engineering: " + (payload.viewEngineering ? "ON" : "OFF");
+      engState.style.borderColor = payload.viewEngineering ? "#35507a" : "#243244";
+    }
+  }
+
+  document.getElementById("apply").addEventListener("click", () => {
+    send("APPLY_LAYOUT", { layout: { modules: gatherLayout() }, viewEngineering: toggleEngineering.checked });
+  });
+  document.getElementById("refresh").addEventListener("click", () => send("REQ_LAYOUT", {}));
+  document.getElementById("export").addEventListener("click", () => {
+    if (!snapshot) return;
+    const payload = {
+      timestamp: new Date().toISOString(),
+      world: snapshot.world,
+      layout: snapshot.layout,
+      ioMap: snapshot.ioMap,
+      viewEngineering: snapshot.viewEngineering
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "deck.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById("close").addEventListener("click", () => window.close());
+
+  toggleEngineering.addEventListener("change", () => {
+    engState.textContent = "Engineering: " + (toggleEngineering.checked ? "ON" : "OFF");
+  });
+
+  document.getElementById("filterKind").addEventListener("change", () => snapshot && renderIo(snapshot.ioMap || []));
+  document.getElementById("filterCrit").addEventListener("change", () => snapshot && renderIo(snapshot.ioMap || []));
+  document.getElementById("filterSearch").addEventListener("input", () => snapshot && renderIo(snapshot.ioMap || []));
+
+  window.addEventListener("message", (ev) => {
+    const m = ev.data;
+    if (!m || m.__vt !== 1) return;
+    if (m.type === "LAYOUT_SNAPSHOT") fill(m.payload || {});
+  });
+
+  send("REQ_LAYOUT", {});
+})();
+${closeScript}
+</body></html>`;
+  }
+
   function openCfgPopup(){
     setPanelForced(true);
     const w = window.open("", "VT_Config", "popup=yes,width=520,height=920");
@@ -2087,6 +2694,17 @@ ${closeScript}
     setTimeout(()=>pushLogSnapshot(true), 80);
   }
 
+  function openLayoutPopup(){
+    setPanelForced(true);
+    const w = window.open("", "VT_LAYOUT", "popup=yes,width=980,height=820");
+    if (!w) return popupBlocked();
+    w.document.open();
+    w.document.write(buildLayoutPopupHTML());
+    w.document.close();
+    popLayout = w;
+    setTimeout(()=>pushLayoutSnapshot(true), 80);
+  }
+
 
   // Mensajes desde ventanas emergentes
   window.addEventListener("message", (ev) => {
@@ -2096,6 +2714,7 @@ ${closeScript}
     if (m.type === "REQ_CFG_VIEW"){ pushCfgViewSnapshot(); return; }
     if (m.type === "REQ_HW"){ pushHWSnapshot(true); return; }
     if (m.type === "REQ_LOG"){ pushLogSnapshot(true); return; }
+    if (m.type === "REQ_LAYOUT"){ pushLayoutSnapshot(true); return; }
 
     if (m.type === "APPLY_FIELDS"){
       writeFieldsToMain(m.payload && m.payload.fields ? m.payload.fields : {});
@@ -2115,7 +2734,27 @@ ${closeScript}
       if (typeof v.showElec === "boolean") showElecEl.checked = v.showElec;
       if (typeof v.showHwLeds === "boolean") showHwLedsEl.checked = v.showHwLeds;
       if (typeof v.showHwLabels === "boolean") showHwLabelsEl.checked = v.showHwLabels;
+      if (typeof v.viewEngineering === "boolean") viewEngineeringEl.checked = v.viewEngineering;
       pushCfgViewSnapshot();
+      return;
+    }
+
+    if (m.type === "APPLY_LAYOUT"){
+      const payload = m.payload || {};
+      if (payload.layout && Array.isArray(payload.layout.modules)){
+        layout.modules = payload.layout.modules.map(mod => ({
+          id: mod.id,
+          name: String(mod.name || ""),
+          x_mm: parseFloat(mod.x_mm) || 0,
+          y_mm: parseFloat(mod.y_mm) || 0,
+          w_mm: parseFloat(mod.w_mm) || 0,
+          h_mm: parseFloat(mod.h_mm) || 0,
+          z_mm: (mod.z_mm === null || mod.z_mm === undefined) ? null : (parseFloat(mod.z_mm) || 0),
+          notes: String(mod.notes || "")
+        }));
+      }
+      if (typeof payload.viewEngineering === "boolean") viewEngineeringEl.checked = payload.viewEngineering;
+      pushLayoutSnapshot(true);
       return;
     }
   });
@@ -2129,12 +2768,20 @@ ${closeScript}
   el("btnPopConfig").addEventListener("click", openCfgPopup);
   el("btnPopHW").addEventListener("click", openHWPopup);
   el("btnPopLog").addEventListener("click", openLogPopup);
+  el("btnPopLayout").addEventListener("click", openLayoutPopup);
+  el("btnExportRunCsv").addEventListener("click", exportRunReportCsv);
+  el("btnExportRunJson").addEventListener("click", exportRunReportJson);
 
   // Al cambiar vista local, reflejar en la ventana de parámetros.
   timeScaleEl.addEventListener("input", () => pushCfgViewSnapshot());
   showElecEl.addEventListener("change", () => pushCfgViewSnapshot());
   showHwLedsEl.addEventListener("change", () => pushCfgViewSnapshot());
   showHwLabelsEl.addEventListener("change", () => pushCfgViewSnapshot());
+  viewEngineeringEl.addEventListener("change", () => {
+    pushCfgViewSnapshot();
+    pushLayoutSnapshot(true);
+    if (!viewEngineeringEl.checked) hideEngTooltip();
+  });
 
   // ---------- Main loop ----------
   let last = performance.now();
@@ -2162,10 +2809,14 @@ ${closeScript}
     if (popCfg && popCfg.closed) popCfg = null;
     if (popHW && popHW.closed) popHW = null;
     if (popLog && popLog.closed) popLog = null;
-    setPanelForced(!!(popCfg || popHW || popLog));
+    if (popLayout && popLayout.closed) popLayout = null;
+    setPanelForced(!!(popCfg || popHW || popLog || popLayout));
     pushHWSnapshot(false);
     pushLogSnapshot(false);
+    pushLayoutSnapshot(false);
     syncUI();
+    updateDashboard();
+    updateRunReportButtons();
     draw();
     requestAnimationFrame(tick);
   }
