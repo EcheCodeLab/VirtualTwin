@@ -292,7 +292,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 8px; }
             <input id="smallBoxes" type="number" min="0" value="3" />
           </div>
           <div>
-            <label>Cajas tips LARGE (24 tips/caja)</label>
+            <label>Cajas tips AMARILLO (96 tips/caja)</label>
             <input id="largeBoxes" type="number" min="0" value="2" />
           </div>
 
@@ -346,7 +346,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 8px; }
         </div>
 
         <div class="item">
-          <div class="k">Cajas tips (SMALL/LARGE) activas</div>
+          <div class="k">Cajas tips (SMALL/AMARILLO) activas</div>
           <div class="v" id="vBoxes">-</div>
         </div>
         <div class="item">
@@ -504,7 +504,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 8px; }
   }
 
   function setZoomAt(px, nextZoom){
-    const clamped = clamp(nextZoom, 0.5, 3.5);
+    const clamped = clamp(nextZoom, 0.4, 8);
     const worldPx = screenToWorldPx(px);
     view.zoom = clamped;
     view.panX = px.x - worldPx.x * view.zoom;
@@ -562,7 +562,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 8px; }
   canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
     const pos = getCanvasMousePos(ev);
-    const factor = ev.deltaY < 0 ? 1.12 : 0.9;
+    const factor = ev.deltaY < 0 ? 1.18 : 0.88;
     setZoomAt(pos, view.zoom * factor);
   }, { passive: false });
 
@@ -931,7 +931,7 @@ const ioMap = [
   world.rackMagZ =      { x: x1 + W - 170,     y: y0 + D - 170, w: 130, d: 130 };
   world.rackInputM1 =   { x: x1 + W*0.22,      y: y0 + D - 30 };
   world.rackExitM1 =    { x: x1 + W - 20,      y: world.rackCollectOrigin.y };
-  world.rackEntryExternal = { x: world.rackInputM1.x, y: y0 + D + LANE + 60 };
+  world.rackEntryExternal = { x: world.rackCollectOrigin.x, y: y0 + D + LANE + 60 };
 
   // ===== M2 anchors =====
   world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
@@ -943,7 +943,7 @@ const ioMap = [
   world.rackInM2 =          { x: x2 + 20,      y: world.rackPipetteOrigin.y };
   world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
   world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
-  world.rackExitM2External = { x: world.rackOutM2.x, y: y0 + D + LANE + 60 };
+  world.rackExitM2External = { x: world.rackPipetteOrigin.x, y: y0 + D + LANE + 60 };
 
   const rackQueueSpacing = 160;
   const rackQueueY = world.rackCollectOrigin.y;
@@ -1199,10 +1199,10 @@ layoutWorld();
   }
   function loadNextLargeBox(){
     sim.largeBoxSlot++;
-    if (sim.largeBoxSlot >= sim.largeBoxesTotal) { setAlarm("TIPS_LARGE_BOXES_EMPTY", "Se agotaron las cajas de tips LARGE."); return false; }
+    if (sim.largeBoxSlot >= sim.largeBoxesTotal) { setAlarm("TIPS_LARGE_BOXES_EMPTY", "Se agotaron las cajas de tips AMARILLO."); return false; }
     sim.tipsLargeUsed = new Array(96).fill(false);
     sim.tipLargeChangeT = 0.9;
-    log(`Tips LARGE: caja agotada → cambiando a caja #${sim.largeBoxSlot+1}/${sim.largeBoxesTotal}.`, "status-warn");
+    log(`Tips AMARILLO: caja agotada → cambiando a caja #${sim.largeBoxSlot+1}/${sim.largeBoxesTotal}.`, "status-warn");
     return true;
   }
 
@@ -1258,8 +1258,8 @@ layoutWorld();
 
       case "MOVE_RACK_IN": {
         const r = C.rack;
-        r.tx = world.rackInputM1.x;
-        r.ty = world.rackInputM1.y;
+        r.tx = world.rackCollectOrigin.x;
+        r.ty = world.rackCollectOrigin.y;
         moveObj(r, dt, cfg.speedRackTransfer);
         const arrived = (Math.hypot(r.tx - r.x, r.ty - r.y) < 0.06);
         if (arrived){
@@ -1611,7 +1611,7 @@ layoutWorld();
         if (idx < 0){
           if (!loadNextLargeBox()) return;
           idx = nextTipLarge();
-          if (idx < 0) { setAlarm("TIPS_LARGE_UNEXPECTED", "Caja LARGE nueva sin tips disponibles."); return; }
+          if (idx < 0) { setAlarm("TIPS_LARGE_UNEXPECTED", "Caja AMARILLO nueva sin tips disponibles."); return; }
         }
         const pos = tipIndexToPosLarge(idx);
         R.tx = pos.x; R.ty = pos.y;
@@ -1724,9 +1724,47 @@ layoutWorld();
   }
 
   // ---------- Hardware overlay ----------
+  const HW_SHORT = {
+    col_y: "MTR01",
+    valve: "SERV1",
+    drop: "SENS1",
+    wash_pump: "PUMP1",
+    rack_conv: "CINT1",
+    rack_in_conv: "CINT2",
+    rack_out_conv: "CINT3",
+    plate_conv: "CINT4",
+    plate_in_m3: "CINT5",
+    pipA_x: "MTR02",
+    pipA_y: "MTR03",
+    pipA_tip: "ACT01",
+    pipA_pump: "PUMP2",
+    pipA_valve: "ACT02",
+    pipA_eject: "ACT03",
+    pipA_tipsense: "SENS2",
+    pipR_x: "MTR04",
+    pipR_y: "MTR05",
+    pipR_tip: "ACT04",
+    pipR_pump: "PUMP3",
+    pipR_valve: "ACT05",
+    pipR_eject: "ACT06",
+    pipR_tipsense: "SENS3",
+    res_level: "SENS4",
+    waste_level_A: "SENS5",
+    waste_level_R: "SENS6",
+    plate_mag_lift: "ZLFT1",
+    rack_mag_lift: "ZLFT2",
+    plate_stack_lift: "ZLFT3",
+    tips_small_swap: "ACT07",
+    tips_large_swap: "ACT08"
+  };
+
+  function hwShort(id){
+    return HW_SHORT[id] || (id || "HW").toUpperCase().slice(0,4);
+  }
+
   function computeHardware(dt){
     const comps = [];
-    const add = (id, label, posMM, active, kind) => comps.push({ id, label, posMM, active, kind });
+    const add = (id, label, posMM, active, kind) => comps.push({ id, label, short: hwShort(id), posMM, active, kind });
 
     sim.valveActiveT = Math.max(0, sim.valveActiveT - dt);
 
@@ -1795,7 +1833,7 @@ add("plate_stack_lift","Actuador Z stack salida",   {x: ps.x + ps.w/2, y: ps.y +
 const sb = world.smallBoxTLs[0] || {x: world.modules[1].x + 40, y: world.modules[1].y + world.modules[1].d - 210};
 const lb = world.largeBoxTLs[0] || {x: world.modules[2].x + 40, y: world.modules[2].y + world.modules[2].d - 210};
 add("tips_small_swap", "Cambio caja tips SMALL", {x: sb.x + 40, y: sb.y + 40}, sim.tipSmallChangeT > 0, "motor");
-add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, sim.tipLargeChangeT > 0, "motor");
+add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}, sim.tipLargeChangeT > 0, "motor");
 
     sim.hw = comps;
   }
@@ -1804,14 +1842,14 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   function drawLabel(text,x,y){
     ctx.save(); ctx.fillStyle="#9fb0c0"; ctx.font="6px system-ui"; ctx.fillText(text,x,y); ctx.restore();
   }
-  function circle(x,y,r,fill,stroke="#223041"){
+  function circle(x,y,r,fill,stroke="rgba(148,163,184,0.7)"){
     ctx.save(); ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=fill; ctx.fill();
-    ctx.lineWidth=1; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
+    ctx.lineWidth=0.6; ctx.strokeStyle=stroke; ctx.stroke(); ctx.restore();
   }
-  function rect(x,y,w,h,stroke="#223041",fill=null, lw=2){
+  function rect(x,y,w,h,stroke="rgba(148,163,184,0.7)",fill=null, lw=2){
     ctx.save();
     if (fill){ ctx.fillStyle=fill; ctx.fillRect(x,y,w,h); }
-    ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.strokeRect(x,y,w,h);
+    ctx.strokeStyle=stroke; ctx.lineWidth=Math.max(0.4, lw*0.5); ctx.strokeRect(x,y,w,h);
     ctx.restore();
   }
   function crosshair(x,y,size,stroke){
@@ -2362,7 +2400,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
         ctx.save();
         ctx.fillStyle = "rgba(232,240,247,0.62)";
         ctx.font = "5.5px system-ui";
-        const short = c.label.length > 28 ? (c.label.slice(0,28)+"…") : c.label;
+        const short = c.short || c.label;
         ctx.fillText(short, p.x-30, p.y+4);
         ctx.restore();
       }
@@ -2467,8 +2505,9 @@ if (world.modules.length >= 3){
     drawLabel("Entrada racks", inM1.x-38, inM1.y+22);
 
     const rackInExt = mm2px(world.rackEntryExternal);
-    rect(inM1.x - 10, rackInExt.y - 14, 20, (inM1.y - rackInExt.y) + 14, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
-    drawLabel("Cinta entrada racks", inM1.x-48, rackInExt.y - 8);
+    const rackInX = mm2px({x: world.rackCollectOrigin.x, y: 0}).x;
+    rect(rackInX - 10, rackInExt.y - 14, 20, (inM1.y - rackInExt.y) + 14, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Cinta entrada racks", rackInX-48, rackInExt.y - 8);
 
     const exitM1 = mm2px(world.rackExitM1);
     rect(exitM1.x - gateRackW/2, exitM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
@@ -2483,8 +2522,9 @@ if (world.modules.length >= 3){
     drawLabel("Rack salida M2", rackOutM2.x-42, rackOutM2.y+22);
 
     const rackOutExt = mm2px(world.rackExitM2External);
-    rect(rackOutM2.x - 10, rackOutM2.y, 20, (rackOutExt.y - rackOutM2.y) + 12, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
-    drawLabel("Cinta salida racks", rackOutM2.x-46, rackOutExt.y - 6);
+    const rackOutX = mm2px({x: world.rackExitM2External.x, y: 0}).x;
+    rect(rackOutX - 10, rackOutM2.y, 20, (rackOutExt.y - rackOutM2.y) + 12, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Cinta salida racks", rackOutX-46, rackOutExt.y - 6);
 
     const plateInM2 = mm2px(world.plateInM2);
     rect(plateInM2.x-14, plateInM2.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
@@ -2655,7 +2695,7 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
       const row = document.createElement("div");
       row.className = "hwrow";
       row.innerHTML = `
-        <div class="hwname"><span class="dot" style="background:${dotCol}"></span>${c.label}</div>
+        <div class="hwname"><span class="dot" style="background:${dotCol}"></span>${c.short || c.label}</div>
         <div class="hwst">${c.active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>
       `;
       hwListEl.appendChild(row);
@@ -2949,6 +2989,7 @@ cfg.lane_mm = Math.max(40, (parseFloat(el("laneCm").value)||12) * 10);
       mode: sim.mode,
       alarm: sim.alarm,
       hw: sim.hw,
+      modules: world.modules,
       valveChannel: sim.valveChannel,
       valveServoDeg: sim.valveServoDeg,
       reservoir_uL: sim.reservoir_uL,
@@ -3126,7 +3167,7 @@ ${openScript}
     plateStackCap: "Capacidad stack final placas",
     rackSupply: "Racks Falcon en magazine",
     smallBoxes: "Cajas tips SMALL (96 tips/caja)",
-    largeBoxes: "Cajas tips LARGE (24 tips/caja)",
+    largeBoxes: "Cajas tips AMARILLO (96 tips/caja)",
     wasteTipCap: "Capacidad descarte tips (unid)",
     wasteLiqCap: "Capacidad descarte líquido (µL)",
     resStart: "Reservorio reactivo inicial (µL)",
@@ -3296,22 +3337,56 @@ ${openScript}
                           " · liq " + Math.round(payload.wasteLiquid_uL||0) + " µL";
 
     const hw = payload.hw || [];
+    const modules = payload.modules || [];
     hwListEl.innerHTML = "";
-    for (const c of hw){
-      const active = !!c.active;
-      let colOn = "rgba(74,222,128,0.95)";
-      let colOff = "rgba(74,222,128,0.18)";
-      if (c.kind === "servo"){ colOn="rgba(168,85,247,0.95)"; colOff="rgba(168,85,247,0.18)"; }
-      if (c.kind === "sensor"){ colOn="rgba(59,130,246,0.95)"; colOff="rgba(59,130,246,0.18)"; }
-      const dotCol = active ? colOn : colOff;
 
-      const row = document.createElement("div");
-      row.className = "hwrow";
-      row.innerHTML =
-        '<div class="hwname"><span class="dot" style="background:' + dotCol + '"></span>' + c.label + '</div>' +
-        '<div class="hwst">' + (active ? "<span class=\\'status-ok\\'>ON</span>" : "<span class=\\'muted\\'>OFF</span>") + '</div>';
-      hwListEl.appendChild(row);
+    const moduleForPos = (pos) => {
+      if (!pos || modules.length < 1) return "M1";
+      if (modules.length >= 3){
+        const x2 = modules[1].x;
+        const x3 = modules[2].x;
+        if (pos.x < x2) return "M1";
+        if (pos.x < x3) return "M2";
+        return "M3";
+      }
+      return "M1";
+    };
+
+    const groups = { M1: [], M2: [], M3: [] };
+    for (const c of hw){
+      const key = moduleForPos(c.posMM);
+      groups[key] = groups[key] || [];
+      groups[key].push(c);
     }
+
+    const renderGroup = (name, items) => {
+      if (!items || items.length === 0) return;
+      const title = document.createElement("div");
+      title.style.fontSize = "10px";
+      title.style.color = "#9fb0c0";
+      title.style.margin = "8px 0 4px";
+      title.textContent = "Módulo " + name;
+      hwListEl.appendChild(title);
+      for (const c of items){
+        const active = !!c.active;
+        let colOn = "rgba(74,222,128,0.95)";
+        let colOff = "rgba(74,222,128,0.18)";
+        if (c.kind === "servo"){ colOn="rgba(168,85,247,0.95)"; colOff="rgba(168,85,247,0.18)"; }
+        if (c.kind === "sensor"){ colOn="rgba(59,130,246,0.95)"; colOff="rgba(59,130,246,0.18)"; }
+        const dotCol = active ? colOn : colOff;
+
+        const row = document.createElement("div");
+        row.className = "hwrow";
+        row.innerHTML =
+          '<div class="hwname"><span class="dot" style="background:' + dotCol + '"></span>' + c.label + '</div>' +
+          '<div class="hwst">' + (active ? "<span class=\\'status-ok\\'>ON</span>" : "<span class=\\'muted\\'>OFF</span>") + '</div>';
+        hwListEl.appendChild(row);
+      }
+    };
+
+    renderGroup("M1", groups.M1);
+    renderGroup("M2", groups.M2);
+    renderGroup("M3", groups.M3);
   }
 
   window.addEventListener("message", (ev) => {
