@@ -448,6 +448,14 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const BASE_CANVAS_W = canvas.width;
   const BASE_CANVAS_H = canvas.height;
 
+  let canvasDpr = window.devicePixelRatio || 1;
+  function setupCanvasDpr(){
+    canvasDpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(BASE_CANVAS_W * canvasDpr);
+    canvas.height = Math.floor(BASE_CANVAS_H * canvasDpr);
+    ctx.setTransform(canvasDpr, 0, 0, canvasDpr, 0, 0);
+  }
+
   function resizeSimCanvas(){
     // Calcular el rectángulo disponible en pantalla y escalar el canvas sin distorsión (letterbox si hace falta).
     const card = canvas.closest("section.card") || canvas.parentElement;
@@ -462,6 +470,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     const s = Math.max(0.10, Math.min(availW / BASE_CANVAS_W, availH / BASE_CANVAS_H));
     canvas.style.width  = Math.floor(BASE_CANVAS_W * s) + "px";
     canvas.style.height = Math.floor(BASE_CANVAS_H * s) + "px";
+    setupCanvasDpr();
   }
 
   window.addEventListener("resize", resizeSimCanvas);
@@ -470,8 +479,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   // --- NEW --- Engineering mouse tooltip
   function getCanvasMousePos(ev){
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = BASE_CANVAS_W / rect.width;
+    const scaleY = BASE_CANVAS_H / rect.height;
     const x = (ev.clientX - rect.left) * scaleX;
     const y = (ev.clientY - rect.top) * scaleY;
     return { x, y };
@@ -621,7 +630,8 @@ const world = {
   totalH_mm: 0,
 
   modules: [], // [{id,name,x,y,w,d,h}]
-  conveyor: { x0: 0, x1: 0, y: 0, w: 120 },
+  conveyors: [],
+  conveyorMain: { x0: 0, x1: 0, y: 0, w: 120, label: "" },
 
   // anchors (mm) (se setean en layoutWorld)
   columnOut: { x: 0, y: 0 },
@@ -662,7 +672,7 @@ const world = {
 // --- NEW --- Engineering layout model (separado de world)
 let layout = { modules: [] };
 
-function buildLayoutFromWorld(){
+  function buildLayoutFromWorld(){
   const mods = [];
   for (const mod of world.modules){
     mods.push({
@@ -699,8 +709,31 @@ function buildLayoutFromWorld(){
     mods.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: cfg.plateW_mm, h_mm: cfg.plateD_mm, z_mm: 0, notes: "Cajas tips LARGE" });
   });
 
-  layout.modules = mods;
-}
+    layout.modules = mods;
+  }
+
+  // --- NEW --- detectar solapamientos simples de layout
+  function checkLayoutOverlaps(){
+    const overlaps = [];
+    const boxes = layout.modules.map(mod => ({
+      id: mod.id,
+      name: mod.name,
+      x: mod.x_mm,
+      y: mod.y_mm,
+      w: mod.w_mm,
+      h: mod.h_mm
+    }));
+    for (let i=0;i<boxes.length;i++){
+      for (let j=i+1;j<boxes.length;j++){
+        const a = boxes[i], b = boxes[j];
+        const hit = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+        if (hit) overlaps.push(`${a.name} ↔ ${b.name}`);
+      }
+    }
+    if (overlaps.length){
+      log(`⚠️ Solapamientos detectados (${overlaps.length}): ${overlaps.slice(0,4).join(", ")}${overlaps.length>4?"…":""}`, "status-warn");
+    }
+  }
 
 // --- NEW --- I/O map base
 const ioMap = [
@@ -717,7 +750,7 @@ const ioMap = [
   { id: "io_plate_conv", label: "Motor cinta placas", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_09", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado placas" }
 ];
 
-function layoutWorld(){
+  function layoutWorld(){
   // Module dims (mm)
   const W = Math.max(200, cfg.moduleW_mm || 500);
   const D = Math.max(200, cfg.moduleD_mm || 500);
@@ -759,8 +792,16 @@ function layoutWorld(){
     { id:"M3", name:"Reactivo + salida", x:x3, y:y0, w:W, d:D, h:H },
   ];
 
-  // Conveyor lane (lineal) en el frente de los módulos
-  world.conveyor = { x0: x1, x1: x3 + W, y: y0 + D + LANE*0.5, w: LANE };
+  // Conveyor lanes (separadas por etapa)
+  const laneYTop = y0 + D + LANE * 0.25;
+  const laneYMid = y0 + D + LANE * 0.5;
+  const laneYBot = y0 + D + LANE * 0.75;
+  world.conveyors = [
+    { x0: x1 + W * 0.85, x1: x2 + W * 0.15, y: laneYTop, w: LANE * 0.26, label: "Cinta M1→M2" },
+    { x0: x2 + W * 0.85, x1: x3 + W * 0.15, y: laneYMid, w: LANE * 0.26, label: "Cinta M2→M3" },
+    { x0: x3 + W * 0.60, x1: x3 + W * 1.05, y: laneYBot, w: LANE * 0.26, label: "Cinta M3→Salida" }
+  ];
+  world.conveyorMain = world.conveyors[1];
 
   // Derived pitches
   world.tubePitch = Math.max(12, cfg.tubePitch_mm || 24);
@@ -777,8 +818,8 @@ function layoutWorld(){
   // ===== M2 anchors =====
   world.rackPipetteOrigin = { x: x2 + 120,     y: y0 + D*0.62 };
   world.pipAHome =          { x: x2 + W*0.55,  y: y0 + 90 };
-  world.plateSt1 =          { x: x2 + W*0.60,  y: y0 + D*0.35 };
-  world.plateBufferPos =    { x: x2 + W*0.88,  y: y0 + D*0.60 };
+  world.plateSt1 =          { x: x2 + W*0.60,  y: y0 + D*0.25 };
+  world.plateBufferPos =    { x: x2 + W*0.88,  y: y0 + D*0.45 };
   world.plateMag =          { x: x2 + W*0.20,  y: y0 + D - 70 };
   world.plateMagZ =         { x: x2 + 40,      y: y0 + D - 160, w: 120, d: 120 };
 
@@ -794,10 +835,10 @@ function layoutWorld(){
 
   // ===== M3 anchors =====
   world.pipRHome =          { x: x3 + W*0.55,  y: y0 + 90 };
-  world.plateSt2 =          { x: x3 + W*0.60,  y: y0 + D*0.35 };
+  world.plateSt2 =          { x: x3 + W*0.60,  y: y0 + D*0.25 };
   world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.35 };
-  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.60 };
-  world.plateStackPos =     { x: x3 + W*0.88,  y: y0 + D*0.60 };
+  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.55 };
+  world.plateStackPos =     { x: x3 + W*0.88,  y: y0 + D*0.55 };
   world.plateStackZ =       { x: x3 + W - 160, y: y0 + D - 160, w: 120, d: 120 };
 
   // tips LARGE dentro de M3
@@ -812,6 +853,7 @@ function layoutWorld(){
   world.controllerBox = { x: x1 + 20, y: y0 + 240 };
 
   buildLayoutFromWorld();
+  checkLayoutOverlaps();
 }
 
 const mm2px = (p)=>({ x: world.offX + p.x*world.mmToPx, y: world.offY + p.y*world.mmToPx });
@@ -1465,7 +1507,7 @@ layoutWorld();
       add("rack_conv", "Motor cinta rack", {x: world.rackPipetteOrigin.x+10, y: world.rackPipetteOrigin.y-34}, false, "motor");
     }
 
-    add("plate_conv", "Motor cinta placas", {x: 650, y: world.conveyor.y+5}, !!sim.movingPlate, "motor");
+    add("plate_conv", "Motor cinta placas", {x: 650, y: (world.conveyorMain.y || 0)+5}, !!sim.movingPlate, "motor");
 
     const A = sim.pipA;
     const dxA = Math.abs(A.tx - A.x), dyA = Math.abs(A.ty - A.y);
@@ -1571,6 +1613,74 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.fillText("X→", origin.x + 74, origin.y + 14);
     ctx.fillText("Y↓", origin.x, origin.y + 74);
     ctx.fillText("(0,0)", origin.x + 16, origin.y + 4);
+    ctx.restore();
+  }
+
+  // --- NEW --- Engineering XZ view inset
+  function drawEngineeringXZ(){
+    const insetW = 320;
+    const insetH = 140;
+    const pad = 12;
+    const left = BASE_CANVAS_W - insetW - 18;
+    const top = 18;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(15,23,35,0.85)";
+    ctx.strokeStyle = "#223041";
+    ctx.lineWidth = 1;
+    ctx.fillRect(left, top, insetW, insetH);
+    ctx.strokeRect(left, top, insetW, insetH);
+    ctx.fillStyle = "rgba(232,240,247,0.7)";
+    ctx.font = "11px system-ui";
+    ctx.fillText("Perfil X-Z (mm)", left + 10, top + 16);
+
+    const innerW = insetW - pad * 2;
+    const innerH = insetH - pad * 2;
+    const baseX = left + pad;
+    const baseY = top + insetH - pad;
+
+    const maxX = world.totalW_mm || 1;
+    const maxZ = Math.max(200, ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600));
+    const sx = innerW / maxX;
+    const sz = innerH / maxZ;
+
+    ctx.strokeStyle = "rgba(232,240,247,0.25)";
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.lineTo(baseX + innerW, baseY);
+    ctx.stroke();
+
+    for (const mod of world.modules){
+      const x = baseX + mod.x * sx;
+      const w = mod.w * sx;
+      const h = mod.h * sz;
+      ctx.fillStyle = "rgba(59,130,246,0.12)";
+      ctx.strokeStyle = "rgba(59,130,246,0.4)";
+      ctx.fillRect(x, baseY - h, w, h);
+      ctx.strokeRect(x, baseY - h, w, h);
+    }
+
+    const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
+    const pipAZ = (sim.pipA.sub === "GET_TIP" || sim.pipA.sub === "ASPIRATE" || sim.pipA.sub === "DISPENSE") ? 35 : 160;
+    const pipRZ = (sim.pipR.sub === "GET_TIP" || sim.pipR.sub === "ASPIRATE_RES" || sim.pipR.sub === "DISPENSE_WELL") ? 35 : 160;
+
+    const heads = [
+      { label: "C", x: sim.collectorHead.x, z: collectorZ, color: "#e8f0f7" },
+      { label: "A", x: sim.pipA.x, z: pipAZ, color: "#fbbf24" },
+      { label: "R", x: sim.pipR.x, z: pipRZ, color: "#4ade80" }
+    ];
+
+    for (const h of heads){
+      const hx = baseX + h.x * sx;
+      const hy = baseY - h.z * sz;
+      ctx.fillStyle = h.color;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.font = "10px system-ui";
+      ctx.fillText(h.label, hx + 6, hy + 3);
+    }
+
     ctx.restore();
   }
 
@@ -1775,13 +1885,14 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // ---------- Draw main ----------
   function draw(){
-    ctx.clearRect(0,0,canvas.width, canvas.height);
-    ctx.save(); ctx.fillStyle="#0b0f14"; ctx.fillRect(0,0,canvas.width, canvas.height); ctx.restore();
+    ctx.clearRect(0,0,BASE_CANVAS_W, BASE_CANVAS_H);
+    ctx.save(); ctx.fillStyle="#0b0f14"; ctx.fillRect(0,0,BASE_CANVAS_W, BASE_CANVAS_H); ctx.restore();
 
     if (viewEngineeringEl.checked){
       drawEngineeringGrid();
       drawEngineeringAxes();
       drawLayoutBoxes();
+      drawEngineeringXZ();
     }
 
     // módulos (rectángulos) + cinta lineal (a escala)
@@ -1816,13 +1927,15 @@ if (world.modules.length >= 3){
   ctx.restore();
 }
 
-// cinta/servicio (representación de la conexión lineal entre módulos)
-    const laneY0 = world.conveyor.y - world.conveyor.w/2;
-    const laneTL = mm2px({x: world.conveyor.x0, y: laneY0});
-    const laneWpx = (world.conveyor.x1 - world.conveyor.x0) * world.mmToPx;
-    const laneHpx = world.conveyor.w * world.mmToPx;
-    rect(laneTL.x, laneTL.y, laneWpx, laneHpx, "rgba(34,48,65,0.7)", "rgba(11,16,23,0.35)", 2);
-    drawLabel("Cinta/servicio (conexión lineal)", laneTL.x + 8, laneTL.y - 10);
+// cintas/servicio (conexión lineal entre módulos)
+    for (const lane of world.conveyors){
+      const laneY0 = lane.y - lane.w/2;
+      const laneTL = mm2px({x: lane.x0, y: laneY0});
+      const laneWpx = (lane.x1 - lane.x0) * world.mmToPx;
+      const laneHpx = lane.w * world.mmToPx;
+      rect(laneTL.x, laneTL.y, laneWpx, laneHpx, "rgba(34,48,65,0.7)", "rgba(11,16,23,0.35)", 2);
+      drawLabel(lane.label, laneTL.x + 8, laneTL.y - 10);
+    }
 
     // nodes
     const col = mm2px(world.columnOut);
@@ -1928,7 +2041,7 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     }
 
     // top panel (auto width)
-    const panelW = canvas.width - 28;
+    const panelW = BASE_CANVAS_W - 28;
     ctx.save();
     ctx.fillStyle="rgba(15,23,35,0.85)";
     ctx.strokeStyle="#223041"; ctx.lineWidth=1;
