@@ -1,5 +1,6 @@
 # VirtualTwin
 
+
 Proyecto base para un **Virtual Twin** orientado a visualización y prueba de interfaces. Actualmente incluye una maqueta HTML con soporte de *popups*, parámetros y ajustes de escalado.
 
 ## Contenido
@@ -25,3 +26,6 @@ Proyecto base para un **Virtual Twin** orientado a visualización y prueba de in
 - Incorporar assets (íconos, imágenes) y estilos finales.
 - Separar lógica en archivos CSS/JS dedicados para facilitar el mantenimiento.
 - Agregar un README más detallado con flujo de datos y casos de uso.
+=======
+##First commit
+
