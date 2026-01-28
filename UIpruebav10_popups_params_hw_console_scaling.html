@@ -61,7 +61,23 @@ body.panel-hidden #miniBar { display:flex; }
     .hwname { display:flex; align-items:center; font-size:12px; color:#cfe1f3; }
     .hwst { font-size:12px; color: var(--muted); }
 
-    
+    .canvas-wrap { position: relative; padding: 10px 12px 12px; }
+    .dashboard { display:flex; flex-direction:column; gap:6px; background:#0b1017; border:1px solid #1f2a37; border-radius:12px; padding:8px 10px; margin-bottom:10px; }
+    .dashboard .row { justify-content:space-between; }
+    .dashboard .title { font-size:12px; color: var(--muted); }
+    .dashboard-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+    .dash-card { border:1px solid #1f2a37; border-radius:10px; padding:8px; background:#0b1017; }
+    .dash-card .k { font-size:11px; color: var(--muted); }
+    .dash-card .v { font-size:13px; margin-top:4px; font-variant-numeric: tabular-nums; }
+    .risk-pill { display:inline-flex; gap:6px; align-items:center; padding:2px 8px; border-radius:999px; border:1px solid #243244; font-size:11px; }
+    .risk-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+    .eng-tooltip { position:absolute; pointer-events:none; background:rgba(11,16,23,0.92); border:1px solid #243244; color:var(--text);
+                   padding:6px 8px; border-radius:8px; font-size:11px; line-height:1.35; transform: translate(10px,10px); white-space:nowrap; z-index:10; display:none; }
+
+    .panel-section.detached { display:none; }
+    .detached-note { display:none; border:1px dashed #243244; border-radius:12px; padding:10px; background:#0b1017; color:var(--muted); font-size:12px; margin-bottom:10px; }
+
     /* Mini toolbar when panel is hidden */
     #miniBar{ display:none; position:fixed; top:72px; right:14px; z-index:50; gap:8px; flex-wrap:wrap;
               background: rgba(18,26,36,0.92); border:1px solid #1f2a37; padding:8px; border-radius:14px; }
@@ -84,16 +100,52 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   <button id="miniStart" class="primary">Iniciar</button>
   <button id="miniPause">Pausar/Reanudar</button>
   <button id="miniReset" class="danger">Reset</button>
-    <button id="miniPopConfig">Parámetros</button>
+  <button id="miniPopConfig">Parámetros</button>
   <button id="miniPopHW">Electrónica</button>
   <button id="miniPopLog">Consola</button>
+  <button id="miniPopLayout">Layout/I-O</button>
 <button id="miniShowPanel">Mostrar panel</button>
 </div>
 
 <div class="wrap">
   <section class="card">
     <h2>Vista del sistema (simulación)</h2>
-    <canvas id="sim" width="1300" height="680"></canvas>
+    <div class="canvas-wrap">
+      <div class="dashboard" id="dashboard">
+        <div class="row">
+          <div class="title">Executive dashboard</div>
+          <div class="small" id="dashEta">ETA: --</div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="dash-card">
+            <div class="k">Throughput</div>
+            <div class="v" id="dashThroughput">-- fracc/h</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Consumo</div>
+            <div class="v" id="dashConsumables">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Waste</div>
+            <div class="v" id="dashWaste">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Tips</div>
+            <div class="v" id="dashTips">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Placas / racks</div>
+            <div class="v" id="dashPlates">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Riesgo</div>
+            <div class="v" id="dashRisk">--</div>
+          </div>
+        </div>
+      </div>
+      <canvas id="sim" width="1300" height="680"></canvas>
+      <div class="eng-tooltip" id="engTooltip"></div>
+    </div>
   </section>
 
   <aside class="card">
@@ -107,6 +159,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         <button id="btnPopConfig">Ventana separada: parámetros</button>
         <button id="btnPopHW">Ventana separada: electrónica</button>
         <button id="btnPopLog">Ventana separada: consola</button>
+        <button id="btnPopLayout">Ventana separada: Layout/I/O</button>
         <button id="btnTogglePanel">Ocultar panel</button>
       </div>
 
@@ -119,113 +172,141 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         <div class="small">Afecta dt de simulación (motores, gotas, aspirar/dispensar, transporte).</div>
       </div>
 
-      <!-- NUEVO: control fino de limpieza visual del overlay -->
       <div class="toggles">
         <div class="t"><input id="showElec" type="checkbox" checked><span>Overlay electrónica</span></div>
         <div class="t"><input id="showHwLeds" type="checkbox" checked><span>Luces (LEDs)</span></div>
         <div class="t"><input id="showHwLabels" type="checkbox" checked><span>Nombres</span></div>
+        <div class="t"><input id="viewEngineering" type="checkbox"><span>Engineering mode</span></div>
       </div>
 
-      <div class="grid" style="margin-bottom:12px">
-        <div>
-          <label>Columnas a analizar</label>
-          <input id="numCols" type="number" min="1" max="12" value="4" />
-        </div>
-        <div>
-          <label>Lavado entre columnas (µL)</label>
-          <input id="washUL" type="number" min="0" value="1500" />
-        </div>
+      <div class="panel-section" id="panelConfig">
+        <div class="grid" style="margin-bottom:12px">
+          <div>
+            <label>Ancho módulo (cm)</label>
+            <input id="moduleWcm" type="number" min="20" value="50" />
+          </div>
+          <div>
+            <label>Profundidad módulo (cm)</label>
+            <input id="moduleDcm" type="number" min="20" value="50" />
+          </div>
+          <div>
+            <label>Altura módulo (cm)</label>
+            <input id="moduleHcm" type="number" min="20" value="60" />
+          </div>
+          <div>
+            <label>Separación entre módulos (cm)</label>
+            <input id="moduleGapcm" type="number" min="0" value="8" />
+          </div>
+          <div>
+            <label>Margen exterior (cm)</label>
+            <input id="outerMargincm" type="number" min="0" value="4" />
+          </div>
+          <div>
+            <label>Ancho cinta/servicio (cm)</label>
+            <input id="laneCm" type="number" min="4" value="12" />
+          </div>
 
-        <div>
-          <label>Grilla tubos N (filas)</label>
-          <input id="gridN" type="number" min="1" max="20" value="6" />
-        </div>
-        <div>
-          <label>Grilla tubos M (columnas)</label>
-          <input id="gridM" type="number" min="1" max="20" value="8" />
-        </div>
+          <div>
+            <label>Columnas a analizar</label>
+            <input id="numCols" type="number" min="1" max="12" value="4" />
+          </div>
+          <div>
+            <label>Lavado entre columnas (µL)</label>
+            <input id="washUL" type="number" min="0" value="1500" />
+          </div>
 
-        <div>
-          <label>Volumen fracción (µL)</label>
-          <input id="targetUL" type="number" min="1" value="500" />
-        </div>
-        <div>
-          <label>Volumen gota (µL)</label>
-          <input id="dropUL" type="number" min="0.1" step="0.1" value="25" />
-        </div>
+          <div>
+            <label>Grilla tubos N (filas)</label>
+            <input id="gridN" type="number" min="1" max="20" value="6" />
+          </div>
+          <div>
+            <label>Grilla tubos M (columnas)</label>
+            <input id="gridM" type="number" min="1" max="20" value="8" />
+          </div>
 
-        <div>
-          <label>Tasa gotas (gotas/s)</label>
-          <input id="dropRate" type="number" min="0" step="0.1" value="2.5" />
-        </div>
-        <div>
-          <label>Vel. XY colector (mm/s)</label>
-          <input id="speedXY" type="number" min="1" value="120" />
-        </div>
+          <div>
+            <label>Volumen fracción (µL)</label>
+            <input id="targetUL" type="number" min="1" value="500" />
+          </div>
+          <div>
+            <label>Volumen gota (µL)</label>
+            <input id="dropUL" type="number" min="0.1" step="0.1" value="25" />
+          </div>
 
-        <div>
-          <label>Vel. XY pipeta alícuotas (mm/s)</label>
-          <input id="speedPipA" type="number" min="1" value="175" />
-        </div>
-        <div>
-          <label>Vel. XY pipeta reactivo (mm/s)</label>
-          <input id="speedPipR" type="number" min="1" value="175" />
-        </div>
+          <div>
+            <label>Tasa gotas (gotas/s)</label>
+            <input id="dropRate" type="number" min="0" step="0.1" value="2.5" />
+          </div>
+          <div>
+            <label>Vel. XY colector (mm/s)</label>
+            <input id="speedXY" type="number" min="1" value="120" />
+          </div>
 
-        <div>
-          <label>Capacidad pipeta reactivo (µL)</label>
-          <input id="pipCapR" type="number" min="50" value="1000" />
-        </div>
-        <div>
-          <label>Alícuota a placa (µL)</label>
-          <input id="aliquotUL" type="number" min="1" value="50" />
-        </div>
+          <div>
+            <label>Vel. XY pipeta alícuotas (mm/s)</label>
+            <input id="speedPipA" type="number" min="1" value="175" />
+          </div>
+          <div>
+            <label>Vel. XY pipeta reactivo (mm/s)</label>
+            <input id="speedPipR" type="number" min="1" value="175" />
+          </div>
 
-        <div>
-          <label>Reactivo a placa (µL)</label>
-          <input id="reagentUL" type="number" min="1" value="200" />
-        </div>
-        <div>
-          <label>Buffer placas (capacidad)</label>
-          <input id="plateBufferCap" type="number" min="0" value="6" />
-        </div>
+          <div>
+            <label>Capacidad pipeta reactivo (µL)</label>
+            <input id="pipCapR" type="number" min="50" value="1000" />
+          </div>
+          <div>
+            <label>Alícuota a placa (µL)</label>
+            <input id="aliquotUL" type="number" min="1" value="50" />
+          </div>
 
-        <div>
-          <label>Placas en magazine</label>
-          <input id="plateSupply" type="number" min="0" value="12" />
-        </div>
-        <div>
-          <label>Capacidad stack final placas</label>
-          <input id="plateStackCap" type="number" min="1" value="20" />
-        </div>
+          <div>
+            <label>Reactivo a placa (µL)</label>
+            <input id="reagentUL" type="number" min="1" value="200" />
+          </div>
+          <div>
+            <label>Buffer placas (capacidad)</label>
+            <input id="plateBufferCap" type="number" min="0" value="6" />
+          </div>
 
-        <div>
-          <label>Racks Falcon en magazine</label>
-          <input id="rackSupply" type="number" min="0" value="10" />
-        </div>
-        <div>
-          <label>Reservorio reactivo inicial (µL)</label>
-          <input id="resStart" type="number" min="0" value="80000" />
-        </div>
+          <div>
+            <label>Placas en magazine</label>
+            <input id="plateSupply" type="number" min="0" value="12" />
+          </div>
+          <div>
+            <label>Capacidad stack final placas</label>
+            <input id="plateStackCap" type="number" min="1" value="20" />
+          </div>
 
-        <div>
-          <label>Cajas tips SMALL (96 tips/caja)</label>
-          <input id="smallBoxes" type="number" min="0" value="3" />
-        </div>
-        <div>
-          <label>Cajas tips LARGE (24 tips/caja)</label>
-          <input id="largeBoxes" type="number" min="0" value="2" />
-        </div>
+          <div>
+            <label>Racks Falcon en magazine</label>
+            <input id="rackSupply" type="number" min="0" value="10" />
+          </div>
+          <div>
+            <label>Reservorio reactivo inicial (µL)</label>
+            <input id="resStart" type="number" min="0" value="80000" />
+          </div>
 
-        <div>
-          <label>Capacidad descarte tips (unid)</label>
-          <input id="wasteTipCap" type="number" min="1" value="400" />
-        </div>
-        <div>
-          <label>Capacidad descarte líquido (µL)</label>
-          <input id="wasteLiqCap" type="number" min="1" value="350000" />
+          <div>
+            <label>Cajas tips SMALL (96 tips/caja)</label>
+            <input id="smallBoxes" type="number" min="0" value="3" />
+          </div>
+          <div>
+            <label>Cajas tips LARGE (24 tips/caja)</label>
+            <input id="largeBoxes" type="number" min="0" value="2" />
+          </div>
+
+          <div>
+            <label>Capacidad descarte tips (unid)</label>
+            <input id="wasteTipCap" type="number" min="1" value="400" />
+          </div>
+          <div>
+            <label>Capacidad descarte líquido (µL)</label>
+            <input id="wasteLiqCap" type="number" min="1" value="350000" />
+          </div>
         </div>
       </div>
+      <div class="detached-note" id="panelConfigDetached">Parámetros enviados a ventana emergente.</div>
 
       <div class="kv" style="margin-bottom:10px">
         <div class="item">
@@ -283,10 +364,21 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         </div>
       </div>
 
-      <div style="margin: 10px 0 8px; font-size:12px; color: var(--muted);">Electrónica – estado instantáneo</div>
-      <div class="hwlist" id="hwList"></div>
+      <div class="panel-section" id="panelHW">
+        <div style="margin: 10px 0 8px; font-size:12px; color: var(--muted);">Electrónica – estado instantáneo</div>
+        <div class="hwlist" id="hwList"></div>
+      </div>
+      <div class="detached-note" id="panelHWDetached">Estado de electrónica en ventana emergente.</div>
 
-      <div class="log" id="log" style="margin-top:10px;"></div>
+      <div class="panel-section" id="panelLog">
+        <div class="log" id="log" style="margin-top:10px;"></div>
+      </div>
+      <div class="detached-note" id="panelLogDetached">Consola en ventana emergente.</div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnExportRunCsv" disabled>Export run_report.csv</button>
+        <button id="btnExportRunJson" disabled>Export run_report.json</button>
+      </div>
     </div>
   </aside>
 </div>
@@ -328,6 +420,16 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const showElecEl = el("showElec");
   const showHwLedsEl = el("showHwLeds");
   const showHwLabelsEl = el("showHwLabels");
+  const viewEngineeringEl = el("viewEngineering");
+
+  const dashThroughput = el("dashThroughput");
+  const dashEta = el("dashEta");
+  const dashConsumables = el("dashConsumables");
+  const dashWaste = el("dashWaste");
+  const dashTips = el("dashTips");
+  const dashPlates = el("dashPlates");
+  const dashRisk = el("dashRisk");
+  const engTooltip = el("engTooltip");
 
   // ---------- Panel docking (hide aside to maximize canvas) ----------
   const btnTogglePanel = el("btnTogglePanel");
@@ -340,6 +442,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const miniPopConfig = document.getElementById("miniPopConfig");
   const miniPopHW = document.getElementById("miniPopHW");
   const miniPopLog = document.getElementById("miniPopLog");
+  const miniPopLayout = document.getElementById("miniPopLayout");
 
   // ---------- Responsive canvas scaling (uniform; evita deformación) ----------
   const BASE_CANVAS_W = canvas.width;
@@ -363,6 +466,42 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
 
   window.addEventListener("resize", resizeSimCanvas);
   window.addEventListener("orientationchange", resizeSimCanvas);
+
+  // --- NEW --- Engineering mouse tooltip
+  function getCanvasMousePos(ev){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (ev.clientX - rect.left) * scaleX;
+    const y = (ev.clientY - rect.top) * scaleY;
+    return { x, y };
+  }
+
+  function updateEngTooltip(ev){
+    if (!viewEngineeringEl.checked){
+      engTooltip.style.display = "none";
+      return;
+    }
+    const px = getCanvasMousePos(ev);
+    const mm = { x: (px.x - world.offX) / world.mmToPx, y: (px.y - world.offY) / world.mmToPx };
+    updateEngineeringHover(mm, px);
+    const mod = engState.closestModule;
+    if (!mod){
+      engTooltip.style.display = "none";
+      return;
+    }
+    engTooltip.innerHTML = `<b>${mod.name}</b><br/>mm: ${mm.x.toFixed(1)}, ${mm.y.toFixed(1)}<br/>px: ${px.x.toFixed(0)}, ${px.y.toFixed(0)}`;
+    engTooltip.style.display = "block";
+    engTooltip.style.left = `${px.x}px`;
+    engTooltip.style.top = `${px.y}px`;
+  }
+
+  function hideEngTooltip(){
+    engTooltip.style.display = "none";
+  }
+
+  canvas.addEventListener("mousemove", updateEngTooltip);
+  canvas.addEventListener("mouseleave", hideEngTooltip);
 
 
   let panelHiddenManual = false;
@@ -397,10 +536,17 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   if (miniPopConfig) miniPopConfig.addEventListener("click", () => openCfgPopup());
   if (miniPopHW) miniPopHW.addEventListener("click", () => openHWPopup());
   if (miniPopLog) miniPopLog.addEventListener("click", () => openLogPopup());
+  if (miniPopLayout) miniPopLayout.addEventListener("click", () => openLayoutPopup());
 
   applyPanelState();
   resizeSimCanvas();
 
+  function setPanelDetached(sectionId, detached){
+    const section = el(sectionId);
+    const note = el(`${sectionId}Detached`);
+    if (section) section.classList.toggle("detached", detached);
+    if (note) note.style.display = detached ? "block" : "none";
+  }
 
   function log(msg, kind="muted") {
     const line = document.createElement("div");
@@ -428,6 +574,20 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     reagent_uL: 200,
     pipetteCapR_uL: 1000,
 
+    // geometría a escala (mm)
+    moduleW_mm: 500,
+    moduleD_mm: 500,
+    moduleH_mm: 600,
+    moduleGap_mm: 80,
+    outerMargin_mm: 40,
+    lane_mm: 120,
+
+    // estándares geométricos aproximados
+    plateW_mm: 127.76,   // SBS footprint
+    plateD_mm: 85.48,
+    wellPitch_mm: 9.0,   // 96-well
+    tubePitch_mm: 24.0,  // aprox (Falcon rack depende de diseño)
+
     // tiempos (s)
     t_tip_pick: 0.28,
     t_tip_drop: 0.22,
@@ -451,51 +611,213 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   };
 
   // ---------- World (mm) ----------
-  // Re-layout: más aire entre módulos (menos “apretado”)
-  const world = {
-    mmToPx: 1.00,
+// Layout a escala (vista superior). Unidades en mm.
+// Importante: mmToPx se calcula para que el conjunto entre en el canvas base SIN deformación.
+const world = {
+  mmToPx: 1.0,
+  offX: 0,
+  offY: 0,
+  totalW_mm: 0,
+  totalH_mm: 0,
 
-    columnOut:      { x: 90,  y: 60  },
-    collectorHome:  { x: 95,  y: 120 },
-    rackCollectOrigin:{ x: 210, y: 220 },
-    rackPipetteOrigin:{ x: 560, y: 360 },
-    tubePitch: 18,
+  modules: [], // [{id,name,x,y,w,d,h}]
+  conveyor: { x0: 0, x1: 0, y: 0, w: 120 },
 
-    pipAHome: { x: 740, y: 130 },
-    pipRHome: { x: 1030,y: 130 },
+  // anchors (mm) (se setean en layoutWorld)
+  columnOut: { x: 0, y: 0 },
+  collectorHome: { x: 0, y: 0 },
+  rackCollectOrigin: { x: 0, y: 0 },
+  rackPipetteOrigin: { x: 0, y: 0 },
 
-    plateSt1: { x: 820, y: 220 },
-    plateSt2: { x: 1130,y: 220 },
-    wellPitch: 10,
+  pipAHome: { x: 0, y: 0 },
+  pipRHome: { x: 0, y: 0 },
 
-    plateBufferPos: { x: 980, y: 360 },
-    plateStackPos:  { x: 1240,y: 360 },
+  plateSt1: { x: 0, y: 0 },
+  plateSt2: { x: 0, y: 0 },
 
-    conveyorY: 500,
+  plateBufferPos: { x: 0, y: 0 },
+  plateStackPos:  { x: 0, y: 0 },
 
-    // Tip boxes más abajo y separados
-    smallBoxTLs: [
-      {x: 600, y: 540}, {x: 780, y: 540}, {x: 960, y: 540},
-      {x: 600, y: 625}, {x: 780, y: 625}, {x: 960, y: 625},
-    ],
-    largeBoxTLs: [
-      {x: 1080, y: 540}, {x: 1210, y: 540},
-      {x: 1080, y: 625}, {x: 1210, y: 625},
-    ],
-    tipPitchSmall: 8.5,
-    tipPitchLarge: 11.5,
+  reservoir: { x: 0, y: 0 },
+  waste:     { x: 0, y: 0 },
+  washWaste: { x: 0, y: 0 },
 
-    reservoir: { x: 1120, y: 430 },
-    waste:     { x: 980,  y: 660 },
-    washWaste: { x: 40,   y: 660 },
+  plateMag:  { x: 0, y: 0 },
+  rackMag:   { x: 0, y: 0 },
 
-    plateMag: { x: 1230, y: 660 },
-    rackMag:  { x: 1160, y: 660 },
+  // footprints Z (mm)
+  rackMagZ:  { x: 0, y: 0, w: 0, d: 0 },
+  plateMagZ: { x: 0, y: 0, w: 0, d: 0 },
+  plateStackZ:{ x: 0, y: 0, w: 0, d: 0 },
 
-    controllerBox: { x: 40, y: 180 }
-  };
+  // Tip boxes (top-left in mm)
+  smallBoxTLs: [],
+  largeBoxTLs: [],
+  tipPitchSmall: 9.0,
+  tipPitchLarge: 18.0,
 
-  const mm2px = (p)=>({ x: p.x*world.mmToPx, y: p.y*world.mmToPx });
+  controllerBox: { x: 0, y: 0 }
+};
+
+// --- NEW --- Engineering layout model (separado de world)
+let layout = { modules: [] };
+
+function buildLayoutFromWorld(){
+  const mods = [];
+  for (const mod of world.modules){
+    mods.push({
+      id: `module_${mod.id.toLowerCase()}`,
+      name: mod.name,
+      x_mm: mod.x,
+      y_mm: mod.y,
+      w_mm: mod.w,
+      h_mm: mod.d,
+      z_mm: mod.h,
+      notes: `Módulo ${mod.id}`
+    });
+  }
+
+  mods.push({ id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x-60, y_mm: world.rackCollectOrigin.y-60, w_mm: 160, h_mm: 160, z_mm: 0, notes: "Rack entrada" });
+  mods.push({ id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x-60, y_mm: world.rackPipetteOrigin.y-60, w_mm: 160, h_mm: 160, z_mm: 0, notes: "Rack en estación" });
+  mods.push({ id: "pipA", name: "Pipeta A", x_mm: world.pipAHome.x-60, y_mm: world.pipAHome.y-60, w_mm: 140, h_mm: 140, z_mm: 120, notes: "Alícuotas" });
+  mods.push({ id: "pipR", name: "Pipeta R", x_mm: world.pipRHome.x-60, y_mm: world.pipRHome.y-60, w_mm: 140, h_mm: 140, z_mm: 120, notes: "Reactivo" });
+  mods.push({ id: "plate_st1", name: "Placa ST1", x_mm: world.plateSt1.x-70, y_mm: world.plateSt1.y-55, w_mm: 140, h_mm: 110, z_mm: 0, notes: "Estación 1" });
+  mods.push({ id: "plate_st2", name: "Placa ST2", x_mm: world.plateSt2.x-70, y_mm: world.plateSt2.y-55, w_mm: 140, h_mm: 110, z_mm: 0, notes: "Estación 2" });
+  mods.push({ id: "plate_buffer", name: "Buffer placas", x_mm: world.plateBufferPos.x-60, y_mm: world.plateBufferPos.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Buffer intermedio" });
+  mods.push({ id: "plate_stack", name: "Stack final", x_mm: world.plateStackPos.x-60, y_mm: world.plateStackPos.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Stack final" });
+  mods.push({ id: "reservoir", name: "Reservorio", x_mm: world.reservoir.x-50, y_mm: world.reservoir.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Reactivo" });
+  mods.push({ id: "waste", name: "Waste", x_mm: world.waste.x-50, y_mm: world.waste.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Descarte" });
+  mods.push({ id: "wash", name: "Waste lavado", x_mm: world.washWaste.x-50, y_mm: world.washWaste.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Lavado columnas" });
+  mods.push({ id: "plate_mag", name: "Mag. placas", x_mm: world.plateMag.x-60, y_mm: world.plateMag.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Magazine placas" });
+  mods.push({ id: "rack_mag", name: "Mag. racks", x_mm: world.rackMag.x-60, y_mm: world.rackMag.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Magazine racks" });
+  mods.push({ id: "controller", name: "Controlador", x_mm: world.controllerBox.x-40, y_mm: world.controllerBox.y-40, w_mm: 80, h_mm: 80, z_mm: 0, notes: "Electrónica" });
+
+  world.smallBoxTLs.forEach((tl, idx) => {
+    mods.push({ id: `tips_small_${idx+1}`, name: `Tip box SMALL ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: cfg.plateW_mm, h_mm: cfg.plateD_mm, z_mm: 0, notes: "Cajas tips SMALL" });
+  });
+  world.largeBoxTLs.forEach((tl, idx) => {
+    mods.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: cfg.plateW_mm, h_mm: cfg.plateD_mm, z_mm: 0, notes: "Cajas tips LARGE" });
+  });
+
+  layout.modules = mods;
+}
+
+// --- NEW --- I/O map base
+const ioMap = [
+  { id: "io_drop_sensor", label: "Sensor gotas", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_12", update_hz: 50, latency_ms: 10, criticality: "HIGH", notes: "Cuenta gotas en colector" },
+  { id: "io_valve_servo", label: "Servo válvula", kind: "ACTUATOR", signal: "PWM", endpoint: "MCU:PWM_2", update_hz: 30, latency_ms: 25, criticality: "MED", notes: "Selector de columna" },
+  { id: "io_collector_xy", label: "Motores XY colector", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_COL", update_hz: 100, latency_ms: 12, criticality: "HIGH", notes: "Interpolación lineal" },
+  { id: "io_pipA_xy", label: "Motores XY pipeta A", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPA", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Alícuotas" },
+  { id: "io_pipR_xy", label: "Motores XY pipeta R", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPR", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Reactivo" },
+  { id: "io_tip_sensor_A", label: "Sensor tip A", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_05", update_hz: 20, latency_ms: 15, criticality: "MED", notes: "Detección tip A" },
+  { id: "io_tip_sensor_R", label: "Sensor tip R", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_06", update_hz: 20, latency_ms: 15, criticality: "MED", notes: "Detección tip R" },
+  { id: "io_res_level", label: "Sensor nivel reservorio", kind: "SENSOR", signal: "AI", endpoint: "PLC:AI_02", update_hz: 5, latency_ms: 50, criticality: "HIGH", notes: "Nivel reactivo" },
+  { id: "io_waste_level", label: "Sensor nivel descarte", kind: "SENSOR", signal: "AI", endpoint: "PLC:AI_03", update_hz: 5, latency_ms: 50, criticality: "HIGH", notes: "Tips + líquido" },
+  { id: "io_rack_conv", label: "Motor cinta rack", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_08", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado racks" },
+  { id: "io_plate_conv", label: "Motor cinta placas", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_09", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado placas" }
+];
+
+function layoutWorld(){
+  // Module dims (mm)
+  const W = Math.max(200, cfg.moduleW_mm || 500);
+  const D = Math.max(200, cfg.moduleD_mm || 500);
+  const H = Math.max(200, cfg.moduleH_mm || 600);
+  const GAP = Math.max(0, cfg.moduleGap_mm || 80);
+  const M = Math.max(0, cfg.outerMargin_mm || 40);
+  const LANE = Math.max(40, cfg.lane_mm || 120);
+
+  // Standards (mm)
+  world.tipPitchSmall = Math.max(6, cfg.wellPitch_mm || 9);
+  world.tipPitchLarge = 18.0;
+
+  // total footprint to render
+  const totalW = 3*W + 2*GAP + 2*M;
+  const totalH = D + LANE + 2*M;
+  world.totalW_mm = totalW;
+  world.totalH_mm = totalH;
+
+  // Fit into base canvas
+  const padPx = 18;
+  const sX = (BASE_CANVAS_W - 2*padPx)/totalW;
+  const sY = (BASE_CANVAS_H - 2*padPx)/totalH;
+  world.mmToPx = Math.max(0.10, Math.min(sX, sY));
+
+  const usedWpx = totalW*world.mmToPx;
+  const usedHpx = totalH*world.mmToPx;
+  world.offX = Math.round((BASE_CANVAS_W - usedWpx)/2);
+  world.offY = Math.round((BASE_CANVAS_H - usedHpx)/2);
+
+  // Module origins
+  const x1 = M;
+  const x2 = M + W + GAP;
+  const x3 = M + 2*(W + GAP);
+  const y0 = M;
+
+  world.modules = [
+    { id:"M1", name:"Fraccionamiento (cabezal)", x:x1, y:y0, w:W, d:D, h:H },
+    { id:"M2", name:"Alícuotas (pre-reactivo)", x:x2, y:y0, w:W, d:D, h:H },
+    { id:"M3", name:"Reactivo + salida", x:x3, y:y0, w:W, d:D, h:H },
+  ];
+
+  // Conveyor lane (lineal) en el frente de los módulos
+  world.conveyor = { x0: x1, x1: x3 + W, y: y0 + D + LANE*0.5, w: LANE };
+
+  // Derived pitches
+  world.tubePitch = Math.max(12, cfg.tubePitch_mm || 24);
+  world.wellPitch = Math.max(7, cfg.wellPitch_mm || 9);
+
+  // ===== M1 anchors =====
+  world.columnOut =     { x: x1 + 70,          y: y0 + 70 };
+  world.collectorHome = { x: x1 + 90,          y: y0 + 130 };
+  world.rackCollectOrigin = { x: x1 + W*0.55,  y: y0 + D*0.55 };
+  world.washWaste =     { x: x1 + 70,          y: y0 + D - 70 };
+  world.rackMag =       { x: x1 + W - 70,      y: y0 + D - 70 };
+  world.rackMagZ =      { x: x1 + W - 160,     y: y0 + D - 160, w: 120, d: 120 };
+
+  // ===== M2 anchors =====
+  world.rackPipetteOrigin = { x: x2 + 120,     y: y0 + D*0.62 };
+  world.pipAHome =          { x: x2 + W*0.55,  y: y0 + 90 };
+  world.plateSt1 =          { x: x2 + W*0.60,  y: y0 + D*0.35 };
+  world.plateBufferPos =    { x: x2 + W*0.88,  y: y0 + D*0.60 };
+  world.plateMag =          { x: x2 + W*0.20,  y: y0 + D - 70 };
+  world.plateMagZ =         { x: x2 + 40,      y: y0 + D - 160, w: 120, d: 120 };
+
+  // tips SMALL (hasta 6 cajas) dentro de M2
+  world.smallBoxTLs = [
+    {x: x2 + 40,  y: y0 + D - 210},
+    {x: x2 + 190, y: y0 + D - 210},
+    {x: x2 + 340, y: y0 + D - 210},
+    {x: x2 + 40,  y: y0 + D - 110},
+    {x: x2 + 190, y: y0 + D - 110},
+    {x: x2 + 340, y: y0 + D - 110},
+  ];
+
+  // ===== M3 anchors =====
+  world.pipRHome =          { x: x3 + W*0.55,  y: y0 + 90 };
+  world.plateSt2 =          { x: x3 + W*0.60,  y: y0 + D*0.35 };
+  world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.35 };
+  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.60 };
+  world.plateStackPos =     { x: x3 + W*0.88,  y: y0 + D*0.60 };
+  world.plateStackZ =       { x: x3 + W - 160, y: y0 + D - 160, w: 120, d: 120 };
+
+  // tips LARGE dentro de M3
+  world.largeBoxTLs = [
+    {x: x3 + 40,  y: y0 + D - 210},
+    {x: x3 + 220, y: y0 + D - 210},
+    {x: x3 + 40,  y: y0 + D - 110},
+    {x: x3 + 220, y: y0 + D - 110},
+  ];
+
+  // Controller (para overlay)
+  world.controllerBox = { x: x1 + 20, y: y0 + 240 };
+
+  buildLayoutFromWorld();
+}
+
+const mm2px = (p)=>({ x: world.offX + p.x*world.mmToPx, y: world.offY + p.y*world.mmToPx });
+
+// inicializa layout una vez al cargar
+layoutWorld();
 
   // ---------- Tip positions ----------
   function currentSmallBoxTL() {
@@ -571,6 +893,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     time: 0,
     alarm: null,
 
+    runReport: [],
+
     plateSupply: cfg.plateSupply,
     rackSupply: cfg.rackSupply,
     reservoir_uL: cfg.reagentReservoirStart_uL,
@@ -612,7 +936,13 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
       washed_uL: 0
     },
 
-    hw: []
+    hw: [],
+    magPlateLiftT: 0,
+    magRackLiftT: 0,
+    stackPlateLiftT: 0,
+    tipSmallChangeT: 0,
+    tipLargeChangeT: 0
+
   };
 
   // ---------- Alarms + waste ----------
@@ -641,6 +971,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     sim.smallBoxSlot++;
     if (sim.smallBoxSlot >= sim.smallBoxesTotal) { setAlarm("TIPS_SMALL_BOXES_EMPTY", "Se agotaron las cajas de tips SMALL."); return false; }
     sim.tipsSmallUsed = new Array(96).fill(false);
+    sim.tipSmallChangeT = 0.9;
     log(`Tips SMALL: caja agotada → cambiando a caja #${sim.smallBoxSlot+1}/${sim.smallBoxesTotal}.`, "status-warn");
     return true;
   }
@@ -648,6 +979,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     sim.largeBoxSlot++;
     if (sim.largeBoxSlot >= sim.largeBoxesTotal) { setAlarm("TIPS_LARGE_BOXES_EMPTY", "Se agotaron las cajas de tips LARGE."); return false; }
     sim.tipsLargeUsed = new Array(24).fill(false);
+    sim.tipLargeChangeT = 0.9;
     log(`Tips LARGE: caja agotada → cambiando a caja #${sim.largeBoxSlot+1}/${sim.largeBoxesTotal}.`, "status-warn");
     return true;
   }
@@ -692,6 +1024,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         if (!C.rack){
           if (sim.rackSupply <= 0) { setAlarm("RACK_EMPTY", "No hay racks Falcon en magazine."); return; }
           sim.rackSupply--;
+          sim.magRackLiftT = 0.8;
           C.rack = newRack();
           log(`Colector: cargó rack ID=${C.rack.id} (columna ${C.currentColumnIdx+1}/${cfg.numColumns}).`, "status-ok");
         }
@@ -724,6 +1057,14 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
           C.rack.frac_uL += newDrops * cfg.drop_uL;
         }
         if (C.rack.frac_uL >= cfg.target_uL){
+          sim.runReport.push({
+            columnIdx: C.currentColumnIdx,
+            fracIndex: C.rack.fracIndex,
+            tubeIndex: C.rack.tubeIndex,
+            timestamp_sim: sim.time,
+            volumen_uL: cfg.target_uL,
+            rackId: C.rack.id
+          });
           C.rack.tubes_uL[C.rack.tubeIndex] += cfg.target_uL;
           C.rack.fracIndex++;
           C.rack.tubeIndex++;
@@ -790,6 +1131,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     if (sim.plateSt1) return true;
     if (sim.plateSupply <= 0) { setAlarm("PLATE_EMPTY", "No hay microplacas en magazine."); return false; }
     sim.plateSupply--;
+    sim.magPlateLiftT = 0.8;
     sim.plateSt1 = newPlate();
     log(`Placa ID=${sim.plateSt1.id} cargada en Estación 1.`, "status-ok");
     return true;
@@ -971,7 +1313,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         {x: world.plateSt2.x, y: world.plateSt2.y},
         {x: world.plateStackPos.x, y: world.plateStackPos.y},
         0.9,
-        () => { sim.stackedPlates++; log(`Placa ID=${plate.id} stackeada (vacía). Stack=${sim.stackedPlates}`, "status-ok"); }
+        () => { sim.stackedPlates++; sim.stackPlateLiftT = 0.9; log(`Placa ID=${plate.id} stackeada (vacía). Stack=${sim.stackedPlates}`, "status-ok"); }
       );
       if (ok) sim.plateSt2 = null;
       return;
@@ -1067,7 +1409,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
               {x: world.plateSt2.x, y: world.plateSt2.y},
               {x: world.plateStackPos.x, y: world.plateStackPos.y},
               0.9,
-              () => { sim.stackedPlates++; log(`Placa ID=${plate.id} stackeada. Stack=${sim.stackedPlates}`, "status-ok"); }
+              () => { sim.stackedPlates++; sim.stackPlateLiftT = 0.9; log(`Placa ID=${plate.id} stackeada. Stack=${sim.stackedPlates}`, "status-ok"); }
             );
             if (ok){
               sim.plateSt2 = null;
@@ -1123,7 +1465,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
       add("rack_conv", "Motor cinta rack", {x: world.rackPipetteOrigin.x+10, y: world.rackPipetteOrigin.y-34}, false, "motor");
     }
 
-    add("plate_conv", "Motor cinta placas", {x: 650, y: world.conveyorY+5}, !!sim.movingPlate, "motor");
+    add("plate_conv", "Motor cinta placas", {x: 650, y: world.conveyor.y+5}, !!sim.movingPlate, "motor");
 
     const A = sim.pipA;
     const dxA = Math.abs(A.tx - A.x), dyA = Math.abs(A.ty - A.y);
@@ -1152,6 +1494,18 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     const wasteWarn = (sim.wasteTipCount > 0.8*cfg.wasteTipCap) || (sim.wasteLiquid_uL > 0.8*cfg.wasteLiqCap_uL);
     add("waste_level", "Sensor nivel descarte", {x: world.waste.x+22, y: world.waste.y-10}, wasteWarn, "sensor");
 
+// actuadores de magazines / stacks (visual, para contemplar apilado vertical)
+const pm = world.plateMagZ, rm = world.rackMagZ, ps = world.plateStackZ;
+add("plate_mag_lift", "Actuador Z magazine placas", {x: pm.x + pm.w/2, y: pm.y + pm.d/2}, sim.magPlateLiftT > 0, "motor");
+add("rack_mag_lift",  "Actuador Z magazine racks",  {x: rm.x + rm.w/2, y: rm.y + rm.d/2}, sim.magRackLiftT > 0, "motor");
+add("plate_stack_lift","Actuador Z stack salida",   {x: ps.x + ps.w/2, y: ps.y + ps.d/2}, sim.stackPlateLiftT > 0, "motor");
+
+// cambio consumibles (tips)
+const sb = world.smallBoxTLs[0] || {x: world.modules[1].x + 40, y: world.modules[1].y + world.modules[1].d - 210};
+const lb = world.largeBoxTLs[0] || {x: world.modules[2].x + 40, y: world.modules[2].y + world.modules[2].d - 210};
+add("tips_small_swap", "Cambio caja tips SMALL", {x: sb.x + 40, y: sb.y + 40}, sim.tipSmallChangeT > 0, "motor");
+add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, sim.tipLargeChangeT > 0, "motor");
+
     sim.hw = comps;
   }
 
@@ -1177,71 +1531,197 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     ctx.stroke(); ctx.restore();
   }
 
+  // --- NEW --- Engineering overlay helpers
+  const engState = {
+    mouseMM: null,
+    mousePx: null,
+    closestModule: null
+  };
+
+  function drawEngineeringGrid(){
+    const spacing = 50;
+    const sub = 10;
+    const maxXmm = world.totalW_mm;
+    const maxYmm = world.totalH_mm;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+    for (let x=0; x<=maxXmm; x+=sub){
+      const px = mm2px({x, y: 0}).x;
+      ctx.strokeStyle = (x % spacing === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(px, world.offY); ctx.lineTo(px, world.offY + maxYmm*world.mmToPx); ctx.stroke();
+    }
+    for (let y=0; y<=maxYmm; y+=sub){
+      const py = mm2px({x: 0, y}).y;
+      ctx.strokeStyle = (y % spacing === 0) ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.07)";
+      ctx.beginPath(); ctx.moveTo(world.offX, py); ctx.lineTo(world.offX + maxXmm*world.mmToPx, py); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEngineeringAxes(){
+    const origin = mm2px({x:0, y:0});
+    ctx.save();
+    ctx.strokeStyle = "rgba(232,240,247,0.6)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(origin.x + 10, origin.y + 10); ctx.lineTo(origin.x + 70, origin.y + 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x + 10, origin.y + 10); ctx.lineTo(origin.x + 10, origin.y + 70); ctx.stroke();
+    ctx.fillStyle = "rgba(232,240,247,0.7)";
+    ctx.font = "11px system-ui";
+    ctx.fillText("X→", origin.x + 74, origin.y + 14);
+    ctx.fillText("Y↓", origin.x, origin.y + 74);
+    ctx.fillText("(0,0)", origin.x + 16, origin.y + 4);
+    ctx.restore();
+  }
+
+  function drawLayoutBoxes(){
+    for (const mod of layout.modules){
+      const px = mm2px({ x: mod.x_mm, y: mod.y_mm });
+      const w = mod.w_mm * world.mmToPx;
+      const h = mod.h_mm * world.mmToPx;
+      ctx.save();
+      ctx.fillStyle = "rgba(59,130,246,0.08)";
+      ctx.strokeStyle = "rgba(59,130,246,0.55)";
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(px.x, px.y, w, h);
+      ctx.strokeRect(px.x, px.y, w, h);
+      ctx.fillStyle = "rgba(232,240,247,0.75)";
+      ctx.font = "11px system-ui";
+      ctx.fillText(mod.name, px.x + 4, px.y + 14);
+      ctx.restore();
+    }
+  }
+
+  function distanceToBox(mm, mod){
+    const dx = Math.max(mod.x_mm - mm.x, 0, mm.x - (mod.x_mm + mod.w_mm));
+    const dy = Math.max(mod.y_mm - mm.y, 0, mm.y - (mod.y_mm + mod.h_mm));
+    return Math.hypot(dx, dy);
+  }
+
+  function updateEngineeringHover(mm, px){
+    if (!layout.modules.length) return;
+    let best = null;
+    let bestD = Infinity;
+    for (const mod of layout.modules){
+      const d = distanceToBox(mm, mod);
+      if (d < bestD){
+        bestD = d;
+        best = mod;
+      }
+    }
+    engState.mouseMM = mm;
+    engState.mousePx = px;
+    engState.closestModule = best;
+  }
+
   function drawPlateAt(posMM, plate){
-    const tl = mm2px({x: posMM.x-18, y: posMM.y-18});
-    const w = (12-1)*world.wellPitch*world.mmToPx + 36;
-    const h = (8-1)*world.wellPitch*world.mmToPx + 36;
-    rect(tl.x, tl.y, w, h);
+    const plateW = Math.max(60, cfg.plateW_mm || 127.76);
+    const plateD = Math.max(40, cfg.plateD_mm || 85.48);
+    const pitch  = Math.max(6,  world.wellPitch || 9);
+
+    // matriz 12x8 (distancia entre centros = pitch)
+    const gridW = 11 * pitch;
+    const gridH = 7  * pitch;
+    const marginX = Math.max(4, (plateW - gridW) / 2);
+    const marginY = Math.max(4, (plateD - gridH) / 2);
+
+    const tl = mm2px({x: posMM.x - plateW/2, y: posMM.y - plateD/2});
+    rect(tl.x, tl.y, plateW*world.mmToPx, plateD*world.mmToPx);
     drawLabel(`Placa ${plate.id}`, tl.x, tl.y-10);
+
+    const base = { x: posMM.x - plateW/2 + marginX, y: posMM.y - plateD/2 + marginY };
+    const rpx = Math.max(2.2, 4.5*world.mmToPx);
+
     for (let i=0;i<96;i++){
-      const r = Math.floor(i/12), c=i%12;
-      const p = mm2px({x: posMM.x + c*world.wellPitch, y: posMM.y + r*world.wellPitch});
-      const vol = plate.wells_uL[i]||0;
+      const r = Math.floor(i/12), c = i%12;
+      const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
+      const vol = plate.wells_uL[i] || 0;
       const denom = Math.max(1, cfg.aliquot_uL + cfg.reagent_uL);
       const f = clamp(vol/denom, 0, 1);
       const fill = vol>0 ? `rgba(59,130,246,${0.12 + 0.55*f})` : "rgba(148,163,184,0.06)";
-      circle(p.x,p.y,4.5,fill);
+      circle(p.x,p.y,rpx,fill);
     }
   }
 
   function drawRack(rack){
-    const rackTL = mm2px({x: rack.x-24, y: rack.y-24});
-    const rackW = (cfg.M-1)*world.tubePitch*world.mmToPx + 48;
-    const rackH = (cfg.N-1)*world.tubePitch*world.mmToPx + 48;
-    rect(rackTL.x, rackTL.y, rackW, rackH);
+    const marginMM = 24;
+    const rackTL = mm2px({x: rack.x - marginMM, y: rack.y - marginMM});
+    const rackWmm = (cfg.M-1)*world.tubePitch + 2*marginMM;
+    const rackHmm = (cfg.N-1)*world.tubePitch + 2*marginMM;
+    rect(rackTL.x, rackTL.y, rackWmm*world.mmToPx, rackHmm*world.mmToPx);
     drawLabel(`Rack ${rack.id}`, rackTL.x, rackTL.y-10);
+
+    const rpx = Math.max(3.5, 8.0*world.mmToPx);
     for (let k=0;k<cfg.N*cfg.M;k++){
       const p = mm2px(tubePosMM(rack, k));
       const vol = rack.tubes_uL[k]||0;
       const f = clamp(vol/cfg.target_uL, 0, 1);
       const fill = f>0 ? `rgba(74,222,128,${0.15+0.65*f})` : "rgba(148,163,184,0.08)";
-      circle(p.x,p.y,7.3,fill);
+      circle(p.x,p.y,rpx,fill);
     }
   }
 
   function drawTipBoxSmall(boxIdx, isActive){
-    const tl = world.smallBoxTLs[Math.min(boxIdx, world.smallBoxTLs.length-1)];
-    const px = mm2px(tl);
-    const w = (12-1)*world.tipPitchSmall*world.mmToPx + 20;
-    const h = (8-1)*world.tipPitchSmall*world.mmToPx + 20;
-    rect(px.x-10, px.y-10, w, h, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
-    drawLabel(`SMALL #${boxIdx+1}`, px.x-10, px.y-16);
+    const tlmm = world.smallBoxTLs[Math.min(boxIdx, world.smallBoxTLs.length-1)];
+    const boxW = Math.max(60, cfg.plateW_mm || 127.76);
+    const boxD = Math.max(40, cfg.plateD_mm || 85.48);
+    const pitch = Math.max(6, world.tipPitchSmall || 9);
+
+    const gridW = 11*pitch, gridH = 7*pitch;
+    const marginX = Math.max(4, (boxW-gridW)/2);
+    const marginY = Math.max(4, (boxD-gridH)/2);
+
+    const tl = mm2px({x: tlmm.x, y: tlmm.y});
+    rect(tl.x, tl.y, boxW*world.mmToPx, boxD*world.mmToPx, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
+    drawLabel(`SMALL box #${boxIdx+1}`, tl.x, tl.y-10);
+
     if (isActive){
+      const base = { x: tlmm.x + marginX, y: tlmm.y + marginY };
+      const rpx = Math.max(1.8, 1.9*world.mmToPx);
       for (let i=0;i<96;i++){
-        const pos = mm2px(tipIndexToPosSmall(i));
+        const r = Math.floor(i/12), c = i%12;
+        const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
         const used = sim.tipsSmallUsed[i];
-        circle(pos.x,pos.y,3.6, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
+        circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
       }
     } else {
-      ctx.save(); ctx.fillStyle="rgba(232,240,247,0.05)"; ctx.font="11px system-ui"; ctx.fillText("…", px.x + 6, px.y + 12); ctx.restore();
+      ctx.save();
+      ctx.fillStyle="rgba(232,240,247,0.05)";
+      ctx.font="11px system-ui";
+      ctx.fillText("…", tl.x + 12, tl.y + 18);
+      ctx.restore();
     }
   }
 
   function drawTipBoxLarge(boxIdx, isActive){
-    const tl = world.largeBoxTLs[Math.min(boxIdx, world.largeBoxTLs.length-1)];
-    const px = mm2px(tl);
-    const w = (6-1)*world.tipPitchLarge*world.mmToPx + 20;
-    const h = (4-1)*world.tipPitchLarge*world.mmToPx + 20;
-    rect(px.x-10, px.y-10, w, h, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
-    drawLabel(`LARGE #${boxIdx+1}`, px.x-10, px.y-16);
+    const tlmm = world.largeBoxTLs[Math.min(boxIdx, world.largeBoxTLs.length-1)];
+    const boxW = Math.max(60, cfg.plateW_mm || 127.76);
+    const boxD = Math.max(40, cfg.plateD_mm || 85.48);
+    const pitch = Math.max(10, world.tipPitchLarge || 18);
+
+    const gridW = 5*pitch, gridH = 3*pitch; // 6x4
+    const marginX = Math.max(4, (boxW-gridW)/2);
+    const marginY = Math.max(4, (boxD-gridH)/2);
+
+    const tl = mm2px({x: tlmm.x, y: tlmm.y});
+    rect(tl.x, tl.y, boxW*world.mmToPx, boxD*world.mmToPx, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
+    drawLabel(`LARGE box #${boxIdx+1}`, tl.x, tl.y-10);
+
     if (isActive){
+      const base = { x: tlmm.x + marginX, y: tlmm.y + marginY };
+      const rpx = Math.max(2.0, 2.4*world.mmToPx);
       for (let i=0;i<24;i++){
-        const pos = mm2px(tipIndexToPosLarge(i));
+        const r = Math.floor(i/6), c = i%6;
+        const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
         const used = sim.tipsLargeUsed[i];
-        circle(pos.x,pos.y,4.2, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
+        circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
       }
     } else {
-      ctx.save(); ctx.fillStyle="rgba(232,240,247,0.05)"; ctx.font="11px system-ui"; ctx.fillText("…", px.x + 6, px.y + 12); ctx.restore();
+      ctx.save();
+      ctx.fillStyle="rgba(232,240,247,0.05)";
+      ctx.font="11px system-ui";
+      ctx.fillText("…", tl.x + 12, tl.y + 18);
+      ctx.restore();
     }
   }
 
@@ -1298,13 +1778,51 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     ctx.clearRect(0,0,canvas.width, canvas.height);
     ctx.save(); ctx.fillStyle="#0b0f14"; ctx.fillRect(0,0,canvas.width, canvas.height); ctx.restore();
 
-    // conveyor line
-    ctx.save();
-    ctx.strokeStyle="#223041"; ctx.lineWidth=3;
-    const cY = world.conveyorY*world.mmToPx;
-    ctx.beginPath(); ctx.moveTo(50,cY); ctx.lineTo(canvas.width-50,cY); ctx.stroke();
-    ctx.restore();
-    drawLabel("Cinta/transportador (recurso único)", 56, cY-10);
+    if (viewEngineeringEl.checked){
+      drawEngineeringGrid();
+      drawEngineeringAxes();
+      drawLayoutBoxes();
+    }
+
+    // módulos (rectángulos) + cinta lineal (a escala)
+    for (const m of world.modules){
+      const tl = mm2px({x:m.x, y:m.y});
+      rect(tl.x, tl.y, m.w*world.mmToPx, m.d*world.mmToPx, "rgba(34,48,65,0.9)", "rgba(15,23,35,0.25)", 2);
+      ctx.save();
+      ctx.fillStyle="rgba(232,240,247,0.85)";
+      ctx.font="12px system-ui";
+      const txt = `${m.id} · ${m.name} (${Math.round(m.w/10)}×${Math.round(m.d/10)}×${Math.round(m.h/10)} cm)`;
+      ctx.fillText(txt, tl.x+10, tl.y+18);
+      ctx.restore();
+}
+
+// super-módulo: Pipeteo microplacas (M2+M3)
+if (world.modules.length >= 3){
+  const m2 = world.modules[1], m3 = world.modules[2];
+  const x0 = m2.x, y0 = Math.min(m2.y, m3.y);
+  const x1 = m3.x + m3.w, y1 = Math.max(m2.y + m2.d, m3.y + m3.d);
+  const tl = mm2px({x:x0, y:y0});
+  const wpx = (x1-x0)*world.mmToPx;
+  const hpx = (y1-y0)*world.mmToPx;
+  ctx.save();
+  ctx.setLineDash([6,6]);
+  ctx.strokeStyle = "rgba(232,240,247,0.35)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(tl.x+3, tl.y+3, wpx-6, hpx-6);
+  ctx.setLineDash([]);
+  ctx.fillStyle="rgba(232,240,247,0.65)";
+  ctx.font="12px system-ui";
+  ctx.fillText("Pipeteo microplacas (M2+M3)", tl.x+10, tl.y-8);
+  ctx.restore();
+}
+
+// cinta/servicio (representación de la conexión lineal entre módulos)
+    const laneY0 = world.conveyor.y - world.conveyor.w/2;
+    const laneTL = mm2px({x: world.conveyor.x0, y: laneY0});
+    const laneWpx = (world.conveyor.x1 - world.conveyor.x0) * world.mmToPx;
+    const laneHpx = world.conveyor.w * world.mmToPx;
+    rect(laneTL.x, laneTL.y, laneWpx, laneHpx, "rgba(34,48,65,0.7)", "rgba(11,16,23,0.35)", 2);
+    drawLabel("Cinta/servicio (conexión lineal)", laneTL.x + 8, laneTL.y - 10);
 
     // nodes
     const col = mm2px(world.columnOut);
@@ -1336,6 +1854,18 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     const rm = mm2px(world.rackMag);
     circle(rm.x,rm.y,13,"rgba(232,240,247,0.06)");
     drawLabel("Mag. racks", rm.x-38, rm.y-18);
+// footprints de apilado vertical (Z-lifts / magazines)
+const pmz = world.plateMagZ, rmz = world.rackMagZ, psz = world.plateStackZ;
+const pmzTL = mm2px({x: pmz.x, y: pmz.y});
+const rmzTL = mm2px({x: rmz.x, y: rmz.y});
+const pszTL = mm2px({x: psz.x, y: psz.y});
+rect(pmzTL.x, pmzTL.y, pmz.w*world.mmToPx, pmz.d*world.mmToPx, "rgba(59,130,246,0.08)", "rgba(59,130,246,0.25)", 1);
+rect(rmzTL.x, rmzTL.y, rmz.w*world.mmToPx, rmz.d*world.mmToPx, "rgba(74,222,128,0.08)", "rgba(74,222,128,0.25)", 1);
+rect(pszTL.x, pszTL.y, psz.w*world.mmToPx, psz.d*world.mmToPx, "rgba(168,85,247,0.08)", "rgba(168,85,247,0.25)", 1);
+drawLabel("Z-lift placas", pmzTL.x, pmzTL.y-10);
+drawLabel("Z-lift racks", rmzTL.x, rmzTL.y-10);
+drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
+
 
     const pb = mm2px(world.plateBufferPos);
     circle(pb.x,pb.y,14,"rgba(232,240,247,0.06)");
@@ -1451,11 +1981,118 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     }
   }
 
+  // --- NEW --- Dashboard + run report UI
+  function formatEta(seconds){
+    if (!isFinite(seconds) || seconds < 0) return "--";
+    const s = Math.round(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  }
+
+  function updateDashboard(){
+    const Q = cfg.drop_uL * cfg.dropRate_hz;
+    const tFrac = Q > 0 ? (cfg.target_uL / Q) : Infinity;
+    const throughput = (tFrac > 0 && isFinite(tFrac)) ? (3600 / tFrac) : 0;
+    const totalFractions = cfg.numColumns * cfg.N * cfg.M;
+    const doneFractions = sim.runReport.length;
+    const remainingFractions = Math.max(0, totalFractions - doneFractions);
+    const etaSec = (throughput > 0) ? (remainingFractions / throughput) * 3600 : Infinity;
+
+    dashThroughput.textContent = `${throughput.toFixed(1)} fracc/h`;
+    dashEta.textContent = `ETA: ${formatEta(etaSec)} (${doneFractions}/${totalFractions})`;
+
+    const tipsSmallUsed = sim.smallBoxSlot * 96 + (96 - tipsRemaining(sim.tipsSmallUsed));
+    const tipsSmallTotal = sim.smallBoxesTotal * 96;
+    const tipsLargeUsed = sim.largeBoxSlot * 24 + (24 - tipsRemaining(sim.tipsLargeUsed));
+    const tipsLargeTotal = sim.largeBoxesTotal * 24;
+    const tipsSmallRemaining = Math.max(0, tipsSmallTotal - tipsSmallUsed);
+    const tipsLargeRemaining = Math.max(0, tipsLargeTotal - tipsLargeUsed);
+
+    const platesUsed = Math.max(0, cfg.plateSupply - sim.plateSupply);
+    const racksUsed = Math.max(0, cfg.rackSupply - sim.rackSupply);
+
+    dashConsumables.textContent = `Tips S/L usados: ${tipsSmallUsed}/${tipsLargeUsed}`;
+    dashTips.textContent = `Tips S/L rem: ${tipsSmallRemaining}/${tipsLargeRemaining}`;
+    dashPlates.textContent = `Placas usadas ${platesUsed} · Racks usados ${racksUsed}`;
+    dashWaste.textContent = `Tips ${sim.wasteTipCount}/${cfg.wasteTipCap} · Liq ${Math.round(sim.wasteLiquid_uL)}/${cfg.wasteLiqCap_uL} µL`;
+
+    const wasteRatio = Math.max(sim.wasteTipCount / cfg.wasteTipCap, sim.wasteLiquid_uL / cfg.wasteLiqCap_uL);
+    const reservoirRatio = cfg.reagentReservoirStart_uL > 0 ? (sim.reservoir_uL / cfg.reagentReservoirStart_uL) : 0;
+    const tipsRatio = Math.min(
+      tipsSmallTotal ? (tipsSmallRemaining / tipsSmallTotal) : 1,
+      tipsLargeTotal ? (tipsLargeRemaining / tipsLargeTotal) : 1
+    );
+
+    const riskBadge = (label, level) => {
+      const col = level === "ALARM" ? "#fb7185" : level === "WARN" ? "#fbbf24" : "#4ade80";
+      return `<span class="risk-pill"><span class="risk-dot" style="background:${col}"></span>${label}:${level}</span>`;
+    };
+
+    const riskWaste = wasteRatio > 0.95 ? "ALARM" : (wasteRatio > 0.8 ? "WARN" : "OK");
+    const riskRes = reservoirRatio < 0.15 ? "ALARM" : (reservoirRatio < 0.35 ? "WARN" : "OK");
+    const riskTips = tipsRatio < 0.1 ? "ALARM" : (tipsRatio < 0.25 ? "WARN" : "OK");
+
+    dashRisk.innerHTML = [
+      riskBadge("Waste", riskWaste),
+      riskBadge("Res", riskRes),
+      riskBadge("Tips", riskTips)
+    ].join(" ");
+  }
+
+  function updateRunReportButtons(){
+    const done = sim.mode === "DONE";
+    el("btnExportRunCsv").disabled = !done;
+    el("btnExportRunJson").disabled = !done;
+  }
+
   // ---------- Control ----------
+  // --- NEW --- Run report export helpers
+  function downloadText(filename, text){
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportRunReportJson(){
+    const payload = {
+      timestamp: new Date().toISOString(),
+      runReport: sim.runReport
+    };
+    downloadText("run_report.json", JSON.stringify(payload, null, 2));
+  }
+
+  function exportRunReportCsv(){
+    const header = ["columnIdx","fracIndex","tubeIndex","timestamp_sim","volumen_uL","rackId"];
+    const lines = [header.join(",")];
+    for (const row of sim.runReport){
+      lines.push([
+        row.columnIdx,
+        row.fracIndex,
+        row.tubeIndex,
+        row.timestamp_sim.toFixed(3),
+        row.volumen_uL,
+        row.rackId
+      ].join(","));
+    }
+    downloadText("run_report.csv", lines.join("\n"));
+  }
+
   function resetAll(){
     sim.mode="IDLE";
     sim.time=0;
     sim.alarm=null;
+    sim.runReport = [];
+    layoutWorld();
 
     sim.plateSupply = cfg.plateSupply;
     sim.rackSupply = cfg.rackSupply;
@@ -1506,6 +2143,14 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   function applyConfig(){
     cfg.numColumns = clamp(parseInt(el("numCols").value,10)||1, 1, 12);
     cfg.wash_uL = Math.max(0, parseFloat(el("washUL").value)||0);
+// módulos a escala (cm -> mm)
+cfg.moduleW_mm = Math.max(200, (parseFloat(el("moduleWcm").value)||50) * 10);
+cfg.moduleD_mm = Math.max(200, (parseFloat(el("moduleDcm").value)||50) * 10);
+cfg.moduleH_mm = Math.max(200, (parseFloat(el("moduleHcm").value)||60) * 10);
+cfg.moduleGap_mm = Math.max(0,   (parseFloat(el("moduleGapcm").value)||8) * 10);
+cfg.outerMargin_mm = Math.max(0, (parseFloat(el("outerMargincm").value)||4) * 10);
+cfg.lane_mm = Math.max(40, (parseFloat(el("laneCm").value)||12) * 10);
+
 
     cfg.N = clamp(parseInt(el("gridN").value,10)||1, 1, 20);
     cfg.M = clamp(parseInt(el("gridM").value,10)||1, 1, 20);
@@ -1562,6 +2207,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   let popCfg = null;
   let popHW = null;
   let popLog = null;
+  let popLayout = null;
 
   function popupBlocked(){
     alert("El navegador bloqueó la ventana emergente.\n\nTip: habilitá pop-ups para este archivo (file://) y reintentá usando el botón.");
@@ -1570,7 +2216,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
   const CFG_IDS = [
     "numCols","washUL","gridN","gridM","targetUL","dropUL","dropRate","speedXY",
     "speedPipA","speedPipR","pipCapR","aliquotUL","reagentUL","plateBufferCap","plateSupply",
-    "plateStackCap","rackSupply","smallBoxes","largeBoxes","wasteTipCap","wasteLiqCap","resStart"
+    "plateStackCap","rackSupply","smallBoxes","largeBoxes","wasteTipCap","wasteLiqCap","resStart",
+    "moduleWcm","moduleDcm","moduleHcm","moduleGapcm","outerMargincm","laneCm"
   ];
 
   function readFieldsFromMain(){
@@ -1597,7 +2244,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
       timeScale: parseFloat(timeScaleEl.value),
       showElec: !!showElecEl.checked,
       showHwLeds: !!showHwLedsEl.checked,
-      showHwLabels: !!showHwLabelsEl.checked
+      showHwLabels: !!showHwLabelsEl.checked,
+      viewEngineering: !!viewEngineeringEl.checked
     };
   }
 
@@ -1637,6 +2285,16 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     _lastLogPush = t;
     if (!logEl) return;
     safePost(popLog, { __vt:1, type:"LOG_SNAPSHOT", payload: { html: logEl.innerHTML }});
+  }
+
+  // --- NEW --- Snapshot layout/I-O
+  function pushLayoutSnapshot(force=false){
+    safePost(popLayout, { __vt:1, type:"LAYOUT_SNAPSHOT", payload: {
+      layout,
+      ioMap,
+      world,
+      viewEngineering: !!viewEngineeringEl.checked
+    }});
   }
 
   function buildCfgPopupHTML(){
@@ -1707,6 +2365,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
         <div class="t"><input id="showElec" type="checkbox" checked><span>Overlay electrónica</span></div>
         <div class="t"><input id="showHwLeds" type="checkbox" checked><span>Luces (LEDs)</span></div>
         <div class="t"><input id="showHwLabels" type="checkbox" checked><span>Nombres</span></div>
+        <div class="t"><input id="viewEngineering" type="checkbox"><span>Engineering mode</span></div>
       </div>
 
       <div class="grid" id="grid">
@@ -1731,7 +2390,7 @@ ${openScript}
     catch(_e){}
   };
 
-  const CFG_IDS = ["numCols","washUL","gridN","gridM","targetUL","dropUL","dropRate","speedXY","speedPipA","speedPipR","pipCapR","aliquotUL","reagentUL","plateBufferCap","plateSupply","plateStackCap","rackSupply","smallBoxes","largeBoxes","wasteTipCap","wasteLiqCap","resStart"];
+  const CFG_IDS = ["numCols","washUL","gridN","gridM","targetUL","dropUL","dropRate","speedXY","speedPipA","speedPipR","pipCapR","aliquotUL","reagentUL","plateBufferCap","plateSupply","plateStackCap","rackSupply","smallBoxes","largeBoxes","wasteTipCap","wasteLiqCap","resStart","moduleWcm","moduleDcm","moduleHcm","moduleGapcm","outerMargincm","laneCm"];
 
   function fill({fields, view}){
     if (fields){
@@ -1749,9 +2408,11 @@ ${openScript}
       const se = document.getElementById("showElec");
       const sl = document.getElementById("showHwLeds");
       const sn = document.getElementById("showHwLabels");
+      const ve = document.getElementById("viewEngineering");
       if (se) se.checked = !!view.showElec;
       if (sl) sl.checked = !!view.showHwLeds;
       if (sn) sn.checked = !!view.showHwLabels;
+      if (ve) ve.checked = !!view.viewEngineering;
     }
   }
 
@@ -1787,7 +2448,13 @@ ${openScript}
     largeBoxes: "Cajas tips LARGE (24 tips/caja)",
     wasteTipCap: "Capacidad descarte tips (unid)",
     wasteLiqCap: "Capacidad descarte líquido (µL)",
-    resStart: "Reservorio reactivo inicial (µL)"
+    resStart: "Reservorio reactivo inicial (µL)",
+    moduleWcm: "Ancho módulo (cm)",
+    moduleDcm: "Profundidad módulo (cm)",
+    moduleHcm: "Altura módulo (cm)",
+    moduleGapcm: "Separación entre módulos (cm)",
+    outerMargincm: "Margen exterior (cm)",
+    laneCm: "Ancho cinta/servicio (cm)"
   };
 
   for (const id of CFG_IDS){
@@ -1797,7 +2464,7 @@ ${openScript}
       const parent = e.closest("div");
       const l = parent ? parent.querySelector("label") : null;
       if (l && labels[id]) l.textContent = labels[id];
-      if (e.type !== "number") e.type = "number";
+      if (e.type !== "number" && id !== "dropRate") e.type = "number";
       if (id === "dropUL") e.step = "0.1";
       if (id === "dropRate") e.step = "0.1";
     }
@@ -1819,12 +2486,13 @@ ${openScript}
     send("SET_VIEW", { timeScale: v });
   });
 
-  for (const id of ["showElec","showHwLeds","showHwLabels"]){
+  for (const id of ["showElec","showHwLeds","showHwLabels","viewEngineering"]){
     document.getElementById(id).addEventListener("change", () => {
       send("SET_VIEW", {
         showElec: document.getElementById("showElec").checked,
         showHwLeds: document.getElementById("showHwLeds").checked,
-        showHwLabels: document.getElementById("showHwLabels").checked
+        showHwLabels: document.getElementById("showHwLabels").checked,
+        viewEngineering: document.getElementById("viewEngineering").checked
       });
     });
   }
@@ -1958,9 +2626,9 @@ ${openScript}
 
       const row = document.createElement("div");
       row.className = "hwrow";
-      row.innerHTML = \`
-        <div class="hwname"><span class="dot" style="background:\${dotCol}"></span>\${c.label}</div>
-        <div class="hwst">\${active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>\`;
+      row.innerHTML = `
+        <div class="hwname"><span class="dot" style="background:${dotCol}"></span>${c.label}</div>
+        <div class="hwst">${active ? "<span class='status-ok'>ON</span>" : "<span class='muted'>OFF</span>"}</div>`;
       hwListEl.appendChild(row);
     }
   }
@@ -2054,37 +2722,283 @@ ${closeScript}
 </body></html>`;
   }
 
+  // --- NEW --- Layout/I-O popup
+  function buildLayoutPopupHTML(){
+    const closeScript = "</scr" + "ipt>";
+    const openScript  = "<scr" + "ipt>";
+
+    return `<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Virtual Twin – Layout/I-O</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#121a24; --muted:#9fb0c0; --text:#e8f0f7; --ok:#4ade80; --warn:#fbbf24; --bad:#fb7185; }
+  body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background:var(--bg); color:var(--text); }
+  header{ padding:12px 14px; border-bottom:1px solid #1f2a37; display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;}
+  header h1{ font-size:14px; margin:0; font-weight:650; }
+  .pill{ font-size:12px; color:var(--muted); border:1px solid #243244; padding:4px 8px; border-radius:999px; }
+  .wrap{ padding:12px; display:grid; gap:12px; }
+  .card{ background:var(--panel); border:1px solid #1f2a37; border-radius:14px; overflow:hidden; }
+  .card h2{ font-size:12px; margin:0; padding:10px 12px; border-bottom:1px solid #1f2a37; color:var(--muted); font-weight:650; }
+  .card .content{ padding:12px; }
+  button{ border:1px solid #243244; background:#0b1017; color:var(--text); padding:8px 10px; border-radius:10px; cursor:pointer; }
+  button:hover{ border-color:#3a4c66; }
+  button.primary{ background:#132034; border-color:#35507a; }
+  button.danger{ border-color:#5b2533; background:#1a0f13; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  th, td{ border-bottom:1px solid #1f2a37; padding:6px 6px; text-align:left; }
+  th{ color:var(--muted); font-weight:600; position:sticky; top:0; background:#121a24; }
+  input, select{ width:100%; padding:6px 8px; border-radius:8px; border:1px solid #253244; background:#0b1017; color:var(--text); font-size:12px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .scroll{ max-height:280px; overflow:auto; border:1px solid #1f2a37; border-radius:12px; }
+  .small{ font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <h1>Layout / I-O map</h1>
+    <span class="pill" id="engState">Engineering: OFF</span>
+  </div>
+  <div class="row">
+    <button id="apply" class="primary">Apply layout</button>
+    <button id="refresh">Refresh</button>
+    <button id="export">Export deck.json</button>
+    <button id="close" class="danger">Cerrar</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="card">
+    <h2>Layout de módulos</h2>
+    <div class="content">
+      <div class="row" style="margin-bottom:8px;">
+        <label class="small"><input id="toggleEngineering" type="checkbox" /> Engineering ON</label>
+        <span class="small">Editar coordenadas/tamaños en mm.</span>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>name</th><th>x_mm</th><th>y_mm</th><th>w_mm</th><th>h_mm</th><th>z_mm</th><th>notes</th>
+            </tr>
+          </thead>
+          <tbody id="layoutBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>I/O map</h2>
+    <div class="content">
+      <div class="row" style="margin-bottom:8px;">
+        <select id="filterKind">
+          <option value="">Kind: ALL</option>
+          <option value="SENSOR">SENSOR</option>
+          <option value="ACTUATOR">ACTUATOR</option>
+        </select>
+        <select id="filterCrit">
+          <option value="">Criticality: ALL</option>
+          <option value="LOW">LOW</option>
+          <option value="MED">MED</option>
+          <option value="HIGH">HIGH</option>
+        </select>
+        <input id="filterSearch" placeholder="Buscar..." />
+      </div>
+      <div class="scroll" style="max-height:260px;">
+        <table>
+          <thead>
+            <tr>
+              <th>id</th><th>label</th><th>kind</th><th>signal</th><th>endpoint</th><th>update_hz</th><th>latency_ms</th><th>criticality</th><th>notes</th>
+            </tr>
+          </thead>
+          <tbody id="ioBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+${openScript}
+(() => {
+  let snapshot = null;
+  const layoutBody = document.getElementById("layoutBody");
+  const ioBody = document.getElementById("ioBody");
+  const engState = document.getElementById("engState");
+  const toggleEngineering = document.getElementById("toggleEngineering");
+
+  const send = (type, payload) => {
+    try { window.opener && window.opener.postMessage({__vt:1, type, payload}, "*"); } catch(_e){}
+  };
+
+  function renderLayout(modules){
+    layoutBody.innerHTML = "";
+    for (const mod of modules){
+      const tr = document.createElement("tr");
+      tr.dataset.id = mod.id;
+      tr.innerHTML = `
+        <td><input data-field="name" value="${mod.name}" /></td>
+        <td><input data-field="x_mm" type="number" value="${mod.x_mm}" /></td>
+        <td><input data-field="y_mm" type="number" value="${mod.y_mm}" /></td>
+        <td><input data-field="w_mm" type="number" value="${mod.w_mm}" /></td>
+        <td><input data-field="h_mm" type="number" value="${mod.h_mm}" /></td>
+        <td><input data-field="z_mm" type="number" value="${mod.z_mm ?? ""}" /></td>
+        <td><input data-field="notes" value="${mod.notes || ""}" /></td>`;
+      layoutBody.appendChild(tr);
+    }
+  }
+
+  function renderIo(ioMap){
+    const kind = document.getElementById("filterKind").value;
+    const crit = document.getElementById("filterCrit").value;
+    const search = (document.getElementById("filterSearch").value || "").toLowerCase();
+
+    ioBody.innerHTML = "";
+    for (const io of ioMap){
+      if (kind && io.kind !== kind) continue;
+      if (crit && io.criticality !== crit) continue;
+      const hay = [io.id, io.label, io.signal, io.endpoint, io.notes].join(" ").toLowerCase();
+      if (search && !hay.includes(search)) continue;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${io.id}</td>
+        <td>${io.label}</td>
+        <td>${io.kind}</td>
+        <td>${io.signal}</td>
+        <td>${io.endpoint}</td>
+        <td>${io.update_hz}</td>
+        <td>${io.latency_ms}</td>
+        <td>${io.criticality}</td>
+        <td>${io.notes || ""}</td>`;
+      ioBody.appendChild(tr);
+    }
+  }
+
+  function gatherLayout(){
+    const mods = [];
+    layoutBody.querySelectorAll("tr").forEach(tr => {
+      const id = tr.dataset.id;
+      const get = (field) => {
+        const input = tr.querySelector('[data-field="'+field+'"]');
+        return input ? input.value : "";
+      };
+      mods.push({
+        id,
+        name: get("name"),
+        x_mm: parseFloat(get("x_mm")) || 0,
+        y_mm: parseFloat(get("y_mm")) || 0,
+        w_mm: parseFloat(get("w_mm")) || 0,
+        h_mm: parseFloat(get("h_mm")) || 0,
+        z_mm: get("z_mm") === "" ? null : (parseFloat(get("z_mm")) || 0),
+        notes: get("notes")
+      });
+    });
+    return mods;
+  }
+
+  function fill(payload){
+    snapshot = payload || null;
+    if (!payload) return;
+    if (payload.layout && Array.isArray(payload.layout.modules)){
+      renderLayout(payload.layout.modules);
+    }
+    if (payload.ioMap) renderIo(payload.ioMap);
+    if (typeof payload.viewEngineering === "boolean"){
+      toggleEngineering.checked = payload.viewEngineering;
+      engState.textContent = "Engineering: " + (payload.viewEngineering ? "ON" : "OFF");
+      engState.style.borderColor = payload.viewEngineering ? "#35507a" : "#243244";
+    }
+  }
+
+  document.getElementById("apply").addEventListener("click", () => {
+    send("APPLY_LAYOUT", { layout: { modules: gatherLayout() }, viewEngineering: toggleEngineering.checked });
+  });
+  document.getElementById("refresh").addEventListener("click", () => send("REQ_LAYOUT", {}));
+  document.getElementById("export").addEventListener("click", () => {
+    if (!snapshot) return;
+    const payload = {
+      timestamp: new Date().toISOString(),
+      world: snapshot.world,
+      layout: snapshot.layout,
+      ioMap: snapshot.ioMap,
+      viewEngineering: snapshot.viewEngineering
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "deck.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById("close").addEventListener("click", () => window.close());
+
+  toggleEngineering.addEventListener("change", () => {
+    engState.textContent = "Engineering: " + (toggleEngineering.checked ? "ON" : "OFF");
+  });
+
+  document.getElementById("filterKind").addEventListener("change", () => snapshot && renderIo(snapshot.ioMap || []));
+  document.getElementById("filterCrit").addEventListener("change", () => snapshot && renderIo(snapshot.ioMap || []));
+  document.getElementById("filterSearch").addEventListener("input", () => snapshot && renderIo(snapshot.ioMap || []));
+
+  window.addEventListener("message", (ev) => {
+    const m = ev.data;
+    if (!m || m.__vt !== 1) return;
+    if (m.type === "LAYOUT_SNAPSHOT") fill(m.payload || {});
+  });
+
+  send("REQ_LAYOUT", {});
+})();
+${closeScript}
+</body></html>`;
+  }
+
   function openCfgPopup(){
-    setPanelForced(true);
     const w = window.open("", "VT_Config", "popup=yes,width=520,height=920");
     if (!w) return popupBlocked();
     w.document.open();
     w.document.write(buildCfgPopupHTML());
     w.document.close();
     popCfg = w;
+    setPanelDetached("panelConfig", true);
     setTimeout(()=>pushCfgViewSnapshot(), 80);
   }
 
   function openHWPopup(){
-    setPanelForced(true);
     const w = window.open("", "VT_HW", "popup=yes,width=450,height=860");
     if (!w) return popupBlocked();
     w.document.open();
     w.document.write(buildHWPopupHTML());
     w.document.close();
     popHW = w;
+    setPanelDetached("panelHW", true);
     setTimeout(()=>pushHWSnapshot(true), 80);
   }
 
   function openLogPopup(){
-    setPanelForced(true);
     const w = window.open("", "VT_LOG", "popup=yes,width=820,height=700");
     if (!w) return popupBlocked();
     w.document.open();
     w.document.write(buildLogPopupHTML());
     w.document.close();
     popLog = w;
+    setPanelDetached("panelLog", true);
     setTimeout(()=>pushLogSnapshot(true), 80);
+  }
+
+  function openLayoutPopup(){
+    const w = window.open("", "VT_LAYOUT", "popup=yes,width=980,height=820");
+    if (!w) return popupBlocked();
+    w.document.open();
+    w.document.write(buildLayoutPopupHTML());
+    w.document.close();
+    popLayout = w;
+    setTimeout(()=>pushLayoutSnapshot(true), 80);
   }
 
 
@@ -2096,6 +3010,7 @@ ${closeScript}
     if (m.type === "REQ_CFG_VIEW"){ pushCfgViewSnapshot(); return; }
     if (m.type === "REQ_HW"){ pushHWSnapshot(true); return; }
     if (m.type === "REQ_LOG"){ pushLogSnapshot(true); return; }
+    if (m.type === "REQ_LAYOUT"){ pushLayoutSnapshot(true); return; }
 
     if (m.type === "APPLY_FIELDS"){
       writeFieldsToMain(m.payload && m.payload.fields ? m.payload.fields : {});
@@ -2115,7 +3030,27 @@ ${closeScript}
       if (typeof v.showElec === "boolean") showElecEl.checked = v.showElec;
       if (typeof v.showHwLeds === "boolean") showHwLedsEl.checked = v.showHwLeds;
       if (typeof v.showHwLabels === "boolean") showHwLabelsEl.checked = v.showHwLabels;
+      if (typeof v.viewEngineering === "boolean") viewEngineeringEl.checked = v.viewEngineering;
       pushCfgViewSnapshot();
+      return;
+    }
+
+    if (m.type === "APPLY_LAYOUT"){
+      const payload = m.payload || {};
+      if (payload.layout && Array.isArray(payload.layout.modules)){
+        layout.modules = payload.layout.modules.map(mod => ({
+          id: mod.id,
+          name: String(mod.name || ""),
+          x_mm: parseFloat(mod.x_mm) || 0,
+          y_mm: parseFloat(mod.y_mm) || 0,
+          w_mm: parseFloat(mod.w_mm) || 0,
+          h_mm: parseFloat(mod.h_mm) || 0,
+          z_mm: (mod.z_mm === null || mod.z_mm === undefined) ? null : (parseFloat(mod.z_mm) || 0),
+          notes: String(mod.notes || "")
+        }));
+      }
+      if (typeof payload.viewEngineering === "boolean") viewEngineeringEl.checked = payload.viewEngineering;
+      pushLayoutSnapshot(true);
       return;
     }
   });
@@ -2129,12 +3064,20 @@ ${closeScript}
   el("btnPopConfig").addEventListener("click", openCfgPopup);
   el("btnPopHW").addEventListener("click", openHWPopup);
   el("btnPopLog").addEventListener("click", openLogPopup);
+  el("btnPopLayout").addEventListener("click", openLayoutPopup);
+  el("btnExportRunCsv").addEventListener("click", exportRunReportCsv);
+  el("btnExportRunJson").addEventListener("click", exportRunReportJson);
 
   // Al cambiar vista local, reflejar en la ventana de parámetros.
   timeScaleEl.addEventListener("input", () => pushCfgViewSnapshot());
   showElecEl.addEventListener("change", () => pushCfgViewSnapshot());
   showHwLedsEl.addEventListener("change", () => pushCfgViewSnapshot());
   showHwLabelsEl.addEventListener("change", () => pushCfgViewSnapshot());
+  viewEngineeringEl.addEventListener("change", () => {
+    pushCfgViewSnapshot();
+    pushLayoutSnapshot(true);
+    if (!viewEngineeringEl.checked) hideEngTooltip();
+  });
 
   // ---------- Main loop ----------
   let last = performance.now();
@@ -2145,6 +3088,13 @@ ${closeScript}
 
     if (sim.mode === "RUNNING"){
       const dt = dtReal * timeScale;
+
+// timers actuadores "Z-lift"/cambio consumibles (visual)
+sim.magPlateLiftT   = Math.max(0, sim.magPlateLiftT   - dt);
+sim.magRackLiftT    = Math.max(0, sim.magRackLiftT    - dt);
+sim.stackPlateLiftT = Math.max(0, sim.stackPlateLiftT - dt);
+sim.tipSmallChangeT = Math.max(0, sim.tipSmallChangeT - dt);
+sim.tipLargeChangeT = Math.max(0, sim.tipLargeChangeT - dt);
 
       stepCollector(dt);
       stepAliquot(dt);
@@ -2162,10 +3112,17 @@ ${closeScript}
     if (popCfg && popCfg.closed) popCfg = null;
     if (popHW && popHW.closed) popHW = null;
     if (popLog && popLog.closed) popLog = null;
-    setPanelForced(!!(popCfg || popHW || popLog));
+    if (popLayout && popLayout.closed) popLayout = null;
+    setPanelForced(!!(popCfg || popHW || popLog || popLayout));
+    setPanelDetached("panelConfig", !!popCfg);
+    setPanelDetached("panelHW", !!popHW);
+    setPanelDetached("panelLog", !!popLog);
     pushHWSnapshot(false);
     pushLogSnapshot(false);
+    pushLayoutSnapshot(false);
     syncUI();
+    updateDashboard();
+    updateRunReportButtons();
     draw();
     requestAnimationFrame(tick);
   }
