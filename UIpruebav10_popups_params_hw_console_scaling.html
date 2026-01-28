@@ -216,12 +216,12 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
           </div>
 
           <div>
-            <label>Grilla tubos N (filas)</label>
-            <input id="gridN" type="number" min="1" max="20" value="6" />
+            <label>Grilla rack (filas)</label>
+            <input id="gridN" type="number" min="1" max="10" value="5" />
           </div>
           <div>
-            <label>Grilla tubos M (columnas)</label>
-            <input id="gridM" type="number" min="1" max="20" value="8" />
+            <label>Grilla rack (columnas)</label>
+            <input id="gridM" type="number" min="1" max="10" value="5" />
           </div>
 
           <div>
@@ -570,7 +570,9 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     wash_uL: 1500,
     washFlow_uL_s: 1200,
 
-    N: 6, M: 8,
+    rackRows: 5,
+    rackCols: 5,
+    fracsPerColumn: 96,
     target_uL: 500,
     drop_uL: 25,
     dropRate_hz: 2.5,
@@ -594,12 +596,12 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     lane_mm: 120,
 
     // estándares geométricos aproximados
-    plateW_mm: 127.76,   // SBS footprint
-    plateD_mm: 85.48,
+    plateW_mm: 128.0,   // SBS footprint
+    plateD_mm: 86.0,
     wellPitch_mm: 9.0,   // 96-well
     tubePitch_mm: 24.0,  // aprox (Falcon rack depende de diseño)
-    plateH_mm: 14.0,
-    rackH_mm: 55.0,
+    plateH_mm: 16.0,
+    rackH_mm: 120.0,
     tipBoxH_mm: 35.0,
     tipSmallLen_mm: 52.0,
     tipLargeLen_mm: 90.0,
@@ -698,13 +700,12 @@ let layout = { modules: [] };
 
   const plateW = Math.max(80, cfg.plateW_mm || 128);
   const plateD = Math.max(60, cfg.plateD_mm || 86);
-  const rackMargin = 20;
-  const rackW = Math.max(90, (cfg.M - 1) * world.tubePitch + rackMargin * 2);
-  const rackD = Math.max(90, (cfg.N - 1) * world.tubePitch + rackMargin * 2);
+  const rackW = 120;
+  const rackD = 120;
   const pipBox = 120;
 
-  mods.push({ id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x - rackW/2, y_mm: world.rackCollectOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack entrada" });
-  mods.push({ id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x - rackW/2, y_mm: world.rackPipetteOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack en estación" });
+  mods.push({ id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x - rackW/2, y_mm: world.rackCollectOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack entrada (fijo)" });
+  mods.push({ id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x - rackW/2, y_mm: world.rackPipetteOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack en estación (fijo)" });
   mods.push({ id: "pipA", name: "Pipeta A", x_mm: world.pipAHome.x - pipBox/2, y_mm: world.pipAHome.y - pipBox/2, w_mm: pipBox, h_mm: pipBox, z_mm: 140, notes: "Alícuotas" });
   mods.push({ id: "pipR", name: "Pipeta R", x_mm: world.pipRHome.x - pipBox/2, y_mm: world.pipRHome.y - pipBox/2, w_mm: pipBox, h_mm: pipBox, z_mm: 140, notes: "Reactivo" });
   mods.push({ id: "plate_st1", name: "Placa ST1", x_mm: world.plateSt1.x - plateW/2, y_mm: world.plateSt1.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Estación 1" });
@@ -837,7 +838,7 @@ const ioMap = [
   // ===== M2 anchors =====
   world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
   world.plateSt1 =          { x: x2 + W*0.72,  y: y0 + D*0.22 };
-  world.rackPipetteOrigin = { x: x2 + W*0.18,  y: y0 + D*0.52 };
+  world.rackPipetteOrigin = { x: x2 + W*0.18,  y: world.rackCollectOrigin.y };
   world.plateBufferPos =    { x: x2 + W*0.72,  y: y0 + D*0.40 };
   world.plateMag =          { x: x2 + W*0.18,  y: y0 + D - 80 };
   world.plateMagZ =         { x: x2 + 30,      y: y0 + D - 170, w: 130, d: 130 };
@@ -929,7 +930,7 @@ layoutWorld();
   }
 
   // ---------- Helpers ----------
-  function tubeIJ(k){ return { i: Math.floor(k/cfg.M), j: k%cfg.M }; }
+  function tubeIJ(k){ return { i: Math.floor(k/cfg.rackCols), j: k%cfg.rackCols }; }
   function tubePosMM(rack, k){
     const {i,j} = tubeIJ(k);
     return { x: rack.x + j*world.tubePitch, y: rack.y + i*world.tubePitch };
@@ -959,7 +960,7 @@ layoutWorld();
       y: world.rackCollectOrigin.y,
       tx: world.rackCollectOrigin.x,
       ty: world.rackCollectOrigin.y,
-      tubes_uL: new Array(cfg.N*cfg.M).fill(0),
+      tubes_uL: new Array(cfg.rackRows*cfg.rackCols).fill(0),
       tubeIndex: 0,
       fracIndex: 0,
       drops: 0,
@@ -1014,16 +1015,18 @@ layoutWorld();
     collectorHead: { x: world.collectorHome.x, y: world.collectorHome.y, tx: world.collectorHome.x, ty: world.collectorHome.y },
 
     pipA: { x: world.pipAHome.x, y: world.pipAHome.y, tx: world.pipAHome.x, ty: world.pipAHome.y,
-            hasTip:false, tipType:"NONE", volInTip:0, phaseT:0, sub:"WAIT_RACK", w:0, rack:null, _tipIdx:-1 },
+            hasTip:false, tipType:"NONE", volInTip:0, phaseT:0, sub:"WAIT_RACK", w:0, rack:null, _tipIdx:-1, tipDropT: 0 },
 
     pipR: { x: world.pipRHome.x, y: world.pipRHome.y, tx: world.pipRHome.x, ty: world.pipRHome.y,
-            hasTip:false, tipType:"NONE", volInTip:0, phaseT:0, sub:"WAIT_PLATE", w:0, tipIdx:-1 },
+            hasTip:false, tipType:"NONE", volInTip:0, phaseT:0, sub:"WAIT_PLATE", w:0, tipIdx:-1, tipDropT: 0 },
 
     collector: {
       state: "WAIT_START",
       currentColumnIdx: 0,
       rack: null,
-      washed_uL: 0
+      washed_uL: 0,
+      fracIndex: 1,
+      columnComplete: false
     },
 
     hw: [],
@@ -1121,6 +1124,7 @@ layoutWorld();
           C.rack = newRack();
           log(`Colector: cargó rack ID=${C.rack.id} (columna ${C.currentColumnIdx+1}/${cfg.numColumns}).`, "status-ok");
         }
+        if (C.fracIndex <= 0) C.fracIndex = 1;
         C.state = "SELECT_COLUMN";
         break;
 
@@ -1166,8 +1170,13 @@ layoutWorld();
           });
           C.rack.tubes_uL[C.rack.tubeIndex] += cfg.target_uL;
           C.rack.fracIndex++;
+          C.fracIndex++;
           C.rack.tubeIndex++;
-          if (C.rack.tubeIndex >= cfg.N*cfg.M){
+          if (C.fracIndex > cfg.fracsPerColumn){
+            C.columnComplete = true;
+          }
+          const rackCap = cfg.rackRows * cfg.rackCols;
+          if (C.rack.tubeIndex >= rackCap || C.columnComplete){
             C.rack.moving = true; C.rack.moveT = 0;
             C.state = "MOVE_RACK_TO_QUEUE";
             sim.collectorHead.tx = world.collectorHome.x; sim.collectorHead.ty = world.collectorHome.y;
@@ -1193,15 +1202,22 @@ layoutWorld();
           sim.rackQueue.push(r);
           log(`Rack ID=${r.id} en cola de alícuotas. (cola racks=${sim.rackQueue.length})`, "status-ok");
 
-          const needWash = (C.currentColumnIdx < cfg.numColumns-1 && cfg.wash_uL > 0);
+          const needWash = (C.columnComplete && C.currentColumnIdx < cfg.numColumns-1 && cfg.wash_uL > 0);
           C.rack = null;
+
+          if (C.columnComplete){
+            C.columnComplete = false;
+            C.fracIndex = 0;
+          }
 
           if (needWash){
             C.washed_uL = 0;
             C.state = "WASH";
             C.currentColumnIdx++;
-          } else {
+          } else if (C.fracIndex === 0){
             C.currentColumnIdx++;
+            C.state = "LOAD_RACK";
+          } else {
             C.state = "LOAD_RACK";
           }
         }
@@ -1284,7 +1300,7 @@ layoutWorld();
       }
 
       case "MOVE_TO_SRC": {
-        if (A.w >= Math.min(96, cfg.N*cfg.M)){ A.sub = "FINISH_PLATE"; break; }
+        if (A.w >= Math.min(96, cfg.fracsPerColumn)){ A.sub = "FINISH_PLATE"; break; }
         const src = tubePosMM(A.rack, A.w);
         A.tx = src.x; A.ty = src.y;
         if (Math.hypot(A.tx-A.x, A.ty-A.y) < 0.08){ A.phaseT=0; A.sub="ASPIRATE"; }
@@ -1336,7 +1352,7 @@ layoutWorld();
             A.phaseT=0;
             if (!addWasteTip()) return;
             if (!addWasteLiquid(A.volInTip)) return;
-            A.hasTip=false; A.tipType="NONE"; A.volInTip=0; A._tipIdx=-1;
+            A.hasTip=false; A.tipType="NONE"; A.volInTip=0; A._tipIdx=-1; A.tipDropT=0.6;
             A.w += 1;
             A.sub = "GET_TIP";
           }
@@ -1500,7 +1516,7 @@ layoutWorld();
             R.phaseT=0;
             if (!addWasteTip()) return;
             if (!addWasteLiquid(R.volInTip)) return;
-            R.hasTip=false; R.tipType="NONE"; R.volInTip=0; R.tipIdx=-1;
+            R.hasTip=false; R.tipType="NONE"; R.volInTip=0; R.tipIdx=-1; R.tipDropT=0.6;
 
             if (sim.stackedPlates >= cfg.plateStackCap){ setAlarm("PLATE_STACK_FULL", `Stack final lleno (cap=${cfg.plateStackCap}).`); return; }
             if (sim.movingPlate) return;
@@ -1641,6 +1657,17 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.stroke();
     ctx.restore();
   }
+  function drawTipDrop(x,y,color,alpha){
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + 12);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // --- NEW --- Engineering overlay helpers
   const engState = {
@@ -1686,6 +1713,25 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.restore();
   }
 
+  function getPipetteZ(pip, isSmall){
+    const tipSmallLen = cfg.tipSmallLen_mm || 52;
+    const tipLargeLen = cfg.tipLargeLen_mm || 90;
+    const plateZ = cfg.plateH_mm || 16;
+    const rackZ = cfg.rackH_mm || 120;
+    const tipBoxZ = cfg.tipBoxH_mm || 35;
+    const wasteZ = cfg.wasteH_mm || 85;
+    const reservoirZ = cfg.reservoirH_mm || 80;
+    const defaultTravelZ = 180;
+    const tipLen = isSmall ? tipSmallLen : tipLargeLen;
+
+    if (pip.sub === "GET_TIP") return { headZ: tipBoxZ + tipLen, tipLen, surfaceZ: tipBoxZ };
+    if (pip.sub === "DROP_TIP" || pip.sub === "DROP_TIP_END") return { headZ: wasteZ + tipLen, tipLen, surfaceZ: wasteZ };
+    if (pip.sub === "DISPENSE" || pip.sub === "DISPENSE_WELL") return { headZ: plateZ + tipLen, tipLen, surfaceZ: plateZ };
+    if (pip.sub === "ASPIRATE") return { headZ: rackZ + tipLen, tipLen, surfaceZ: rackZ };
+    if (pip.sub === "ASPIRATE_RES" || pip.sub === "MOVE_TO_RES") return { headZ: reservoirZ + tipLen, tipLen, surfaceZ: reservoirZ };
+    return { headZ: defaultTravelZ, tipLen: pip.hasTip ? tipLen : 0, surfaceZ: 0 };
+  }
+
   // --- NEW --- Engineering XZ view inset
   function drawEngineeringXZ(){
     const insetW = 320;
@@ -1710,24 +1756,13 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseY = top + insetH - pad;
 
     const maxX = world.totalW_mm || 1;
-    const defaultTravelZ = 180;
     const tipSmallLen = cfg.tipSmallLen_mm || 52;
     const tipLargeLen = cfg.tipLargeLen_mm || 90;
-    const plateZ = cfg.plateH_mm || 14;
-    const rackZ = cfg.rackH_mm || 55;
+    const plateZ = cfg.plateH_mm || 16;
+    const rackZ = cfg.rackH_mm || 120;
     const tipBoxZ = cfg.tipBoxH_mm || 35;
     const wasteZ = cfg.wasteH_mm || 85;
     const reservoirZ = cfg.reservoirH_mm || 80;
-
-    const getPipetteZ = (pip, isSmall) => {
-      const tipLen = isSmall ? tipSmallLen : tipLargeLen;
-      if (pip.sub === "GET_TIP") return { headZ: tipBoxZ + tipLen, tipLen, surfaceZ: tipBoxZ };
-      if (pip.sub === "DROP_TIP" || pip.sub === "DROP_TIP_END") return { headZ: wasteZ + tipLen, tipLen, surfaceZ: wasteZ };
-      if (pip.sub === "DISPENSE" || pip.sub === "DISPENSE_WELL") return { headZ: plateZ + tipLen, tipLen, surfaceZ: plateZ };
-      if (pip.sub === "ASPIRATE") return { headZ: rackZ + tipLen, tipLen, surfaceZ: rackZ };
-      if (pip.sub === "ASPIRATE_RES" || pip.sub === "MOVE_TO_RES") return { headZ: reservoirZ + tipLen, tipLen, surfaceZ: reservoirZ };
-      return { headZ: defaultTravelZ, tipLen: pip.hasTip ? tipLen : 0, surfaceZ: 0 };
-    };
 
     const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
     const pipAInfo = getPipetteZ(sim.pipA, true);
@@ -1774,7 +1809,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
     const plateW = Math.max(80, cfg.plateW_mm || 128);
     const tipBoxW = plateW;
-    const rackW = Math.max(90, (cfg.M - 1) * world.tubePitch + 40);
+    const rackW = 120;
     const smallXs = world.smallBoxTLs.map(t => t.x);
     const largeXs = world.largeBoxTLs.map(t => t.x);
     const smallRange = smallXs.length ? { min: Math.min(...smallXs), max: Math.max(...smallXs) + tipBoxW } : null;
@@ -1811,6 +1846,116 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       }
       ctx.font = "10px system-ui";
       ctx.fillText(h.label, hx + 6, hy + 3);
+    }
+
+    ctx.restore();
+  }
+
+  // --- NEW --- Engineering YZ view inset
+  function drawEngineeringYZ(){
+    const insetW = 320;
+    const insetH = 160;
+    const pad = 12;
+    const left = 18;
+    const top = BASE_CANVAS_H - insetH - 18;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(15,23,35,0.85)";
+    ctx.strokeStyle = "#223041";
+    ctx.lineWidth = 1;
+    ctx.fillRect(left, top, insetW, insetH);
+    ctx.strokeRect(left, top, insetW, insetH);
+    ctx.fillStyle = "rgba(232,240,247,0.7)";
+    ctx.font = "11px system-ui";
+    ctx.fillText("Perfil Y-Z (mm)", left + 10, top + 16);
+
+    const innerW = insetW - pad * 2;
+    const innerH = insetH - pad * 2;
+    const baseX = left + pad;
+    const baseY = top + insetH - pad;
+
+    const maxY = world.totalH_mm || 1;
+    const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
+    const pipAInfo = getPipetteZ(sim.pipA, true);
+    const pipRInfo = getPipetteZ(sim.pipR, false);
+    const maxZ = Math.max(
+      200,
+      ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600),
+      collectorZ,
+      pipAInfo.headZ,
+      pipRInfo.headZ
+    );
+    const sy = innerW / maxY;
+    const sz = innerH / maxZ;
+
+    ctx.strokeStyle = "rgba(232,240,247,0.25)";
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.lineTo(baseX + innerW, baseY);
+    ctx.stroke();
+
+    for (const mod of world.modules){
+      const y = baseX + mod.y * sy;
+      const w = mod.d * sy;
+      const h = mod.h * sz;
+      ctx.fillStyle = "rgba(59,130,246,0.12)";
+      ctx.strokeStyle = "rgba(59,130,246,0.4)";
+      ctx.fillRect(y, baseY - h, w, h);
+      ctx.strokeRect(y, baseY - h, w, h);
+    }
+
+    const drawSurface = (label, yCenter, dMm, zMm, color) => {
+      const y = baseX + (yCenter - dMm/2) * sy;
+      const w = dMm * sy;
+      const h = zMm * sz;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "rgba(232,240,247,0.3)";
+      ctx.fillRect(y, baseY - h, w, h);
+      ctx.strokeRect(y, baseY - h, w, h);
+      ctx.fillStyle = "rgba(232,240,247,0.6)";
+      ctx.font = "9px system-ui";
+      ctx.fillText(label, y + 4, baseY - h - 4);
+    };
+
+    const plateD = Math.max(60, cfg.plateD_mm || 86);
+    const tipBoxD = plateD;
+    const rackD = 120;
+    const smallYs = world.smallBoxTLs.map(t => t.y);
+    const largeYs = world.largeBoxTLs.map(t => t.y);
+    const smallRange = smallYs.length ? { min: Math.min(...smallYs), max: Math.max(...smallYs) + tipBoxD } : null;
+    const largeRange = largeYs.length ? { min: Math.min(...largeYs), max: Math.max(...largeYs) + tipBoxD } : null;
+
+    drawSurface("Placa ST1", world.plateSt1.y, plateD, cfg.plateH_mm, "rgba(56,189,248,0.18)");
+    drawSurface("Placa ST2", world.plateSt2.y, plateD, cfg.plateH_mm, "rgba(56,189,248,0.18)");
+    drawSurface("Rack", world.rackPipetteOrigin.y, rackD, cfg.rackH_mm, "rgba(34,197,94,0.18)");
+    drawSurface("Reservorio", world.reservoir.y, 80, cfg.reservoirH_mm, "rgba(148,163,184,0.18)");
+    drawSurface("Waste", world.waste.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
+    if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, cfg.tipBoxH_mm + cfg.tipSmallLen_mm, "rgba(147,197,253,0.14)");
+    if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, cfg.tipBoxH_mm + cfg.tipLargeLen_mm, "rgba(74,222,128,0.14)");
+
+    const heads = [
+      { label: "C", y: sim.collectorHead.y, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
+      { label: "A", y: sim.pipA.y, z: pipAInfo.headZ, tipLen: pipAInfo.tipLen, color: "#fbbf24" },
+      { label: "R", y: sim.pipR.y, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#4ade80" }
+    ];
+
+    for (const h of heads){
+      const hy = baseX + h.y * sy;
+      const hz = baseY - h.z * sz;
+      ctx.fillStyle = h.color;
+      ctx.beginPath();
+      ctx.arc(hy, hz, 4, 0, Math.PI*2);
+      ctx.fill();
+      if (h.tipLen > 0){
+        ctx.strokeStyle = h.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(hy, hz);
+        ctx.lineTo(hy, hz + h.tipLen * sz);
+        ctx.stroke();
+      }
+      ctx.font = "10px system-ui";
+      ctx.fillText(h.label, hy + 6, hz + 3);
     }
 
     ctx.restore();
@@ -1886,15 +2031,15 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   }
 
   function drawRack(rack){
-    const marginMM = 24;
+    const rackWmm = 120;
+    const rackHmm = 120;
+    const marginMM = (rackWmm - (cfg.rackCols - 1) * world.tubePitch) / 2;
     const rackTL = mm2px({x: rack.x - marginMM, y: rack.y - marginMM});
-    const rackWmm = (cfg.M-1)*world.tubePitch + 2*marginMM;
-    const rackHmm = (cfg.N-1)*world.tubePitch + 2*marginMM;
     rect(rackTL.x, rackTL.y, rackWmm*world.mmToPx, rackHmm*world.mmToPx);
     drawLabel(`Rack ${rack.id}`, rackTL.x, rackTL.y-10);
 
     const rpx = Math.max(3.5, 8.0*world.mmToPx);
-    for (let k=0;k<cfg.N*cfg.M;k++){
+    for (let k=0;k<cfg.rackRows*cfg.rackCols;k++){
       const p = mm2px(tubePosMM(rack, k));
       const vol = rack.tubes_uL[k]||0;
       const f = clamp(vol/cfg.target_uL, 0, 1);
@@ -2024,6 +2169,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       drawEngineeringGrid();
       drawLayoutBoxes();
       drawEngineeringXZ();
+      drawEngineeringYZ();
     }
     drawEngineeringAxes();
 
@@ -2091,6 +2237,12 @@ if (world.modules.length >= 3){
     const wst = mm2px(world.waste);
     circle(wst.x,wst.y,13,"rgba(251,113,133,0.08)");
     drawLabel("Waste", wst.x-16, wst.y-18);
+    if (sim.pipA.tipDropT > 0 || sim.pipR.tipDropT > 0){
+      const tA = clamp(sim.pipA.tipDropT / 0.6, 0, 1);
+      const tR = clamp(sim.pipR.tipDropT / 0.6, 0, 1);
+      if (tA > 0) drawTipDrop(wst.x - 10, wst.y - 6 + (1 - tA) * 16, "#fbbf24", tA);
+      if (tR > 0) drawTipDrop(wst.x + 10, wst.y - 6 + (1 - tR) * 16, "#4ade80", tR);
+    }
 
     const pm = mm2px(world.plateMag);
     circle(pm.x,pm.y,13,"rgba(232,240,247,0.06)");
@@ -2244,7 +2396,7 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     const Q = cfg.drop_uL * cfg.dropRate_hz;
     const tFrac = Q > 0 ? (cfg.target_uL / Q) : Infinity;
     const throughput = (tFrac > 0 && isFinite(tFrac)) ? (3600 / tFrac) : 0;
-    const totalFractions = cfg.numColumns * cfg.N * cfg.M;
+    const totalFractions = cfg.numColumns * cfg.fracsPerColumn;
     const doneFractions = sim.runReport.length;
     const remainingFractions = Math.max(0, totalFractions - doneFractions);
     const etaSec = (throughput > 0) ? (remainingFractions / throughput) * 3600 : Infinity;
@@ -2399,8 +2551,8 @@ cfg.outerMargin_mm = Math.max(0, (parseFloat(el("outerMargincm").value)||4) * 10
 cfg.lane_mm = Math.max(40, (parseFloat(el("laneCm").value)||12) * 10);
 
 
-    cfg.N = clamp(parseInt(el("gridN").value,10)||1, 1, 20);
-    cfg.M = clamp(parseInt(el("gridM").value,10)||1, 1, 20);
+    cfg.rackRows = clamp(parseInt(el("gridN").value,10)||1, 1, 10);
+    cfg.rackCols = clamp(parseInt(el("gridM").value,10)||1, 1, 10);
 
     cfg.target_uL = Math.max(1, parseFloat(el("targetUL").value)||1);
     cfg.drop_uL = Math.max(0.1, parseFloat(el("dropUL").value)||0.1);
@@ -2676,8 +2828,8 @@ ${openScript}
   const labels = {
     numCols: "Columnas a analizar",
     washUL: "Lavado entre columnas (µL)",
-    gridN: "Grilla tubos N (filas)",
-    gridM: "Grilla tubos M (columnas)",
+    gridN: "Grilla rack (filas)",
+    gridM: "Grilla rack (columnas)",
     targetUL: "Volumen fracción (µL)",
     dropUL: "Volumen gota (µL)",
     dropRate: "Tasa gotas (gotas/s)",
@@ -3342,6 +3494,8 @@ sim.magRackLiftT    = Math.max(0, sim.magRackLiftT    - dt);
 sim.stackPlateLiftT = Math.max(0, sim.stackPlateLiftT - dt);
 sim.tipSmallChangeT = Math.max(0, sim.tipSmallChangeT - dt);
 sim.tipLargeChangeT = Math.max(0, sim.tipLargeChangeT - dt);
+sim.pipA.tipDropT = Math.max(0, sim.pipA.tipDropT - dt);
+sim.pipR.tipDropT = Math.max(0, sim.pipR.tipDropT - dt);
 
       stepCollector(dt);
       stepAliquot(dt);
