@@ -58,8 +58,8 @@ body.panel-hidden #miniBar { display:flex; }
     .hwrow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 4px 0; border-bottom: 1px dashed rgba(31,42,55,0.7); }
     .hwrow:last-child{ border-bottom:none; }
     .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:8px; }
-    .hwname { display:flex; align-items:center; font-size:12px; color:#cfe1f3; }
-    .hwst { font-size:12px; color: var(--muted); }
+    .hwname { display:flex; align-items:center; font-size:10px; color:#cfe1f3; }
+    .hwst { font-size:10px; color: var(--muted); }
 
     .canvas-wrap { position: relative; padding: 10px 12px 12px; }
     .dashboard { display:flex; flex-direction:column; gap:6px; background:#0b1017; border:1px solid #1f2a37; border-radius:12px; padding:8px 10px; margin-bottom:10px; }
@@ -143,7 +143,7 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
           </div>
         </div>
       </div>
-      <canvas id="sim" width="1300" height="680"></canvas>
+      <canvas id="sim" width="1500" height="900"></canvas>
       <div class="eng-tooltip" id="engTooltip"></div>
     </div>
   </section>
@@ -486,14 +486,40 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     return { x, y };
   }
 
+  const view = {
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    isPanning: false,
+    panStart: { x: 0, y: 0 },
+    panOrigin: { x: 0, y: 0 }
+  };
+  canvas.style.cursor = "grab";
+
+  function screenToWorldPx(px){
+    return {
+      x: (px.x - view.panX) / view.zoom,
+      y: (px.y - view.panY) / view.zoom
+    };
+  }
+
+  function setZoomAt(px, nextZoom){
+    const clamped = clamp(nextZoom, 0.5, 3.5);
+    const worldPx = screenToWorldPx(px);
+    view.zoom = clamped;
+    view.panX = px.x - worldPx.x * view.zoom;
+    view.panY = px.y - worldPx.y * view.zoom;
+  }
+
   function updateEngTooltip(ev){
     if (!viewEngineeringEl.checked){
       engTooltip.style.display = "none";
       return;
     }
     const px = getCanvasMousePos(ev);
-    const mm = { x: (px.x - world.offX) / world.mmToPx, y: (px.y - world.offY) / world.mmToPx };
-    updateEngineeringHover(mm, px);
+    const worldPx = screenToWorldPx(px);
+    const mm = { x: (worldPx.x - world.offX) / world.mmToPx, y: (worldPx.y - world.offY) / world.mmToPx };
+    updateEngineeringHover(mm, worldPx);
     const mod = engState.closestModule;
     if (!mod){
       engTooltip.style.display = "none";
@@ -509,8 +535,36 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     engTooltip.style.display = "none";
   }
 
-  canvas.addEventListener("mousemove", updateEngTooltip);
+  canvas.addEventListener("mousemove", (ev) => {
+    if (view.isPanning){
+      const pos = getCanvasMousePos(ev);
+      view.panX = view.panOrigin.x + (pos.x - view.panStart.x);
+      view.panY = view.panOrigin.y + (pos.y - view.panStart.y);
+      return;
+    }
+    updateEngTooltip(ev);
+  });
   canvas.addEventListener("mouseleave", hideEngTooltip);
+
+  canvas.addEventListener("mousedown", (ev) => {
+    if (ev.button !== 0) return;
+    view.isPanning = true;
+    hideEngTooltip();
+    const pos = getCanvasMousePos(ev);
+    view.panStart = pos;
+    view.panOrigin = { x: view.panX, y: view.panY };
+    canvas.style.cursor = "grabbing";
+  });
+  window.addEventListener("mouseup", () => {
+    view.isPanning = false;
+    canvas.style.cursor = "grab";
+  });
+  canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    const pos = getCanvasMousePos(ev);
+    const factor = ev.deltaY < 0 ? 1.12 : 0.9;
+    setZoomAt(pos, view.zoom * factor);
+  }, { passive: false });
 
 
   let panelHiddenManual = false;
@@ -639,6 +693,8 @@ const world = {
   offY: 0,
   totalW_mm: 0,
   totalH_mm: 0,
+  engXZ: null,
+  engYZ: null,
 
   modules: [], // [{id,name,x,y,w,d,h}]
   conveyors: [],
@@ -807,7 +863,9 @@ const ioMap = [
   world.tipPitchLarge = 18.0;
 
   // total footprint to render
-  const totalW = 3*W + 2*GAP + 2*M;
+  const gap12 = GAP + 160;
+  const gap23 = GAP;
+  const totalW = 3*W + gap12 + gap23 + 2*M;
   const totalH = D + LANE + 2*M;
   world.totalW_mm = totalW;
   world.totalH_mm = totalH;
@@ -817,25 +875,27 @@ const ioMap = [
   const maxZ = computeMaxZ();
   const insetPadPx = 12;
   const insetGapPx = 12;
-  const sX = (BASE_CANVAS_W - 2*padPx - insetGapPx - insetPadPx*2) / (totalW + totalH);
-  const sY = (BASE_CANVAS_H - 2*padPx - insetGapPx - insetPadPx*2) / (totalH + maxZ);
+  const sX = (BASE_CANVAS_W - 2*padPx - insetPadPx*2) / totalW;
+  const sY = (BASE_CANVAS_H - 2*padPx - insetGapPx*2 - insetPadPx*4) / (totalH + maxZ * 2);
   world.mmToPx = Math.max(0.08, Math.min(sX, sY));
 
   const usedWpx = totalW*world.mmToPx;
   const usedHpx = totalH*world.mmToPx;
-  const insetWpx = totalH*world.mmToPx + insetPadPx*2;
+  const insetWpx = totalW*world.mmToPx + insetPadPx*2;
   const insetHpx = maxZ*world.mmToPx + insetPadPx*2;
-  const combinedWpx = usedWpx + insetGapPx + insetWpx;
-  const combinedHpx = usedHpx + insetGapPx + insetHpx;
+  const combinedWpx = usedWpx + insetPadPx*2;
+  const combinedHpx = usedHpx + insetGapPx + insetHpx + insetGapPx + insetHpx;
   world.engInsetPadPx = insetPadPx;
   world.engInsetGapPx = insetGapPx;
   world.offX = Math.round((BASE_CANVAS_W - combinedWpx)/2);
   world.offY = Math.round((BASE_CANVAS_H - combinedHpx)/2);
+  world.engXZ = { left: world.offX, top: world.offY + usedHpx + insetGapPx };
+  world.engYZ = { left: world.offX, top: world.engXZ.top + insetHpx + insetGapPx };
 
   // Module origins
   const x1 = M;
-  const x2 = M + W + GAP;
-  const x3 = M + 2*(W + GAP);
+  const x2 = M + W + gap12;
+  const x3 = M + 2*W + gap12 + gap23;
   const y0 = M;
 
   world.modules = [
@@ -1770,7 +1830,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   }
 
   function drawEngineeringAxes(){
-    const baseY = Math.min(BASE_CANVAS_H - 18, world.offY + world.totalH_mm*world.mmToPx + 24);
+    const axisGap = world.engInsetGapPx || 12;
+    const baseY = Math.min(BASE_CANVAS_H - 18, world.offY + world.totalH_mm*world.mmToPx + axisGap - 6);
     const origin = { x: world.offX + 12, y: baseY - 60 };
     ctx.save();
     ctx.strokeStyle = "rgba(232,240,247,0.6)";
@@ -1810,8 +1871,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const scale = world.mmToPx || 1;
     const insetW = world.totalW_mm * scale + pad * 2;
     const insetH = computeMaxZ() * scale + pad * 2;
-    const left = world.offX;
-    const top = world.offY + world.totalH_mm * scale + (world.engInsetGapPx || 12);
+    const left = world.engXZ ? world.engXZ.left : world.offX;
+    const top = world.engXZ ? world.engXZ.top : world.offY;
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -1903,6 +1964,20 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, tipBoxZ + tipSmallLen, "rgba(147,197,253,0.14)");
     if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, tipBoxZ + tipLargeLen, "rgba(74,222,128,0.14)");
 
+    const rackSeen = new Set();
+    const racks = [];
+    const addRack = (rack) => {
+      if (!rack || rackSeen.has(rack.id)) return;
+      rackSeen.add(rack.id);
+      racks.push(rack);
+    };
+    addRack(sim.collector.rack);
+    sim.rackQueue.forEach(addRack);
+    addRack(sim.pipA.rack);
+    for (const rack of racks){
+      drawSurface(`Rack ${rack.id}`, rack.x, rackW, rackZ, "rgba(34,197,94,0.26)");
+    }
+
     const heads = [
       { label: "C", x: sim.collectorHead.x, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
       { label: "A", x: sim.pipA.x, z: pipAInfo.headZ, tipLen: pipAInfo.tipLen, color: "#fbbf24" },
@@ -1938,8 +2013,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const scale = world.mmToPx || 1;
     const insetW = world.totalH_mm * scale + pad * 2;
     const insetH = computeMaxZ() * scale + pad * 2;
-    const left = world.offX + world.totalW_mm * scale + (world.engInsetGapPx || 12);
-    const top = world.offY + world.totalH_mm * scale + (world.engInsetGapPx || 12);
+    const left = world.engYZ ? world.engYZ.left : world.offX;
+    const top = world.engYZ ? world.engYZ.top : (world.offY + world.totalH_mm * scale + (world.engInsetGapPx || 12));
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -2021,6 +2096,20 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     drawSurface("Waste M3", world.wasteR.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, cfg.tipBoxH_mm + cfg.tipSmallLen_mm, "rgba(147,197,253,0.14)");
     if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, cfg.tipBoxH_mm + cfg.tipLargeLen_mm, "rgba(74,222,128,0.14)");
+
+    const rackSeen = new Set();
+    const racks = [];
+    const addRack = (rack) => {
+      if (!rack || rackSeen.has(rack.id)) return;
+      rackSeen.add(rack.id);
+      racks.push(rack);
+    };
+    addRack(sim.collector.rack);
+    sim.rackQueue.forEach(addRack);
+    addRack(sim.pipA.rack);
+    for (const rack of racks){
+      drawSurface(`Rack ${rack.id}`, rack.y, rackD, cfg.rackH_mm, "rgba(34,197,94,0.26)");
+    }
 
     const heads = [
       { label: "C", y: sim.collectorHead.y, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
@@ -2242,8 +2331,8 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       if (showLabels){
         ctx.save();
         ctx.fillStyle = "rgba(232,240,247,0.62)";
-        ctx.font = "10.5px system-ui";
-        const short = c.label.length > 22 ? (c.label.slice(0,22)+"…") : c.label;
+        ctx.font = "9.5px system-ui";
+        const short = c.label.length > 26 ? (c.label.slice(0,26)+"…") : c.label;
         ctx.fillText(short, p.x-30, p.y+4);
         ctx.restore();
       }
@@ -2254,6 +2343,10 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   function draw(){
     ctx.clearRect(0,0,BASE_CANVAS_W, BASE_CANVAS_H);
     ctx.save(); ctx.fillStyle="#0b0f14"; ctx.fillRect(0,0,BASE_CANVAS_W, BASE_CANVAS_H); ctx.restore();
+
+    ctx.save();
+    ctx.translate(view.panX, view.panY);
+    ctx.scale(view.zoom, view.zoom);
 
     if (viewEngineeringEl.checked){
       drawEngineeringGrid();
@@ -2470,6 +2563,11 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
       ctx.restore();
     }
 
+    // electronics overlay (sin líneas)
+    drawElectronicsOverlay();
+
+    ctx.restore();
+
     // top panel (auto width)
     const panelW = BASE_CANVAS_W - 28;
     ctx.save();
@@ -2483,8 +2581,6 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     ctx.fillText(`Colector: ${sim.collector.state} | Aliq: ${sim.pipA.sub} | Reag: ${sim.pipR.sub} | racksQ ${sim.rackQueue.length} | bufPl ${sim.plateBuffer.length} | stacked ${sim.stackedPlates}`, 28, 58);
     ctx.restore();
 
-    // electronics overlay (sin líneas)
-    drawElectronicsOverlay();
   }
 
   // ---------- UI sync ----------
@@ -3089,8 +3185,8 @@ ${closeScript}
   .hwrow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 4px 0; border-bottom: 1px dashed rgba(31,42,55,0.7); }
   .hwrow:last-child{ border-bottom:none; }
   .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:8px; }
-  .hwname { display:flex; align-items:center; font-size:12px; color:#cfe1f3; }
-  .hwst { font-size:12px; color: var(--muted); }
+  .hwname { display:flex; align-items:center; font-size:10px; color:#cfe1f3; }
+  .hwst { font-size:10px; color: var(--muted); }
   .status-ok { color: var(--ok); }
   .status-bad { color: var(--bad); }
   .muted { color:#8aa0b5; }
