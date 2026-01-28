@@ -777,6 +777,18 @@ const ioMap = [
   { id: "io_plate_conv", label: "Motor cinta placas", kind: "ACTUATOR", signal: "DO", endpoint: "PLC:DO_09", update_hz: 10, latency_ms: 30, criticality: "MED", notes: "Traslado placas" }
 ];
 
+  function computeMaxZ(){
+    return Math.max(
+      cfg.moduleH_mm || 600,
+      (cfg.rackH_mm || 120) + (cfg.tipSmallLen_mm || 52),
+      (cfg.plateH_mm || 16) + (cfg.tipLargeLen_mm || 90),
+      (cfg.tipBoxH_mm || 35) + (cfg.tipLargeLen_mm || 90),
+      (cfg.wasteH_mm || 85) + (cfg.tipLargeLen_mm || 90),
+      (cfg.reservoirH_mm || 80) + (cfg.tipLargeLen_mm || 90),
+      200
+    );
+  }
+
   function layoutWorld(){
   // Module dims (mm)
   const W = Math.max(200, cfg.moduleW_mm || 500);
@@ -799,11 +811,13 @@ const ioMap = [
   world.totalW_mm = totalW;
   world.totalH_mm = totalH;
 
-  // Fit into base canvas
+  // Fit into base canvas + engineering insets at same scale
   const padPx = 18;
-  const sX = (BASE_CANVAS_W - 2*padPx)/totalW;
-  const sY = (BASE_CANVAS_H - 2*padPx)/totalH;
-  world.mmToPx = Math.max(0.10, Math.min(sX, sY));
+  const maxZ = computeMaxZ();
+  const insetsGap = 24;
+  const sX = (BASE_CANVAS_W - 3*padPx - insetsGap) / (totalW + totalH);
+  const sY = (BASE_CANVAS_H - 3*padPx) / (totalH + maxZ);
+  world.mmToPx = Math.max(0.08, Math.min(sX, sY));
 
   const usedWpx = totalW*world.mmToPx;
   const usedHpx = totalH*world.mmToPx;
@@ -1753,11 +1767,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering XZ view inset
   function drawEngineeringXZ(){
-    const insetW = 420;
-    const insetH = 200;
     const pad = 12;
-    const left = BASE_CANVAS_W - insetW - 18;
-    const top = BASE_CANVAS_H - insetH - 18;
+    const scale = world.mmToPx || 1;
+    const insetW = world.totalW_mm * scale + pad * 2;
+    const insetH = computeMaxZ() * scale + pad * 2;
+    const left = world.offX;
+    const top = world.offY + world.totalH_mm * scale + 12;
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -1787,18 +1802,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const pipAInfo = getPipetteZ(sim.pipA, true);
     const pipRInfo = getPipetteZ(sim.pipR, false);
 
-    const maxZ = Math.max(
-      200,
-      ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600),
-      collectorZ,
-      pipAInfo.headZ,
-      pipRInfo.headZ
-    );
-    const scale = Math.min(
-      world.mmToPx || 1,
-      innerW / Math.max(1, maxX),
-      innerH / Math.max(1, maxZ)
-    );
+    const maxZ = computeMaxZ();
     const visibleZ = maxZ;
     const sx = scale;
     const sz = scale;
@@ -1891,11 +1895,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering YZ view inset
   function drawEngineeringYZ(){
-    const insetW = 420;
-    const insetH = 200;
     const pad = 12;
-    const left = 18;
-    const top = BASE_CANVAS_H - insetH - 18;
+    const scale = world.mmToPx || 1;
+    const insetW = world.totalH_mm * scale + pad * 2;
+    const insetH = computeMaxZ() * scale + pad * 2;
+    const left = world.offX + world.totalW_mm * scale + 12;
+    const top = world.offY + world.totalH_mm * scale + 12;
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -1916,18 +1921,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
     const pipAInfo = getPipetteZ(sim.pipA, true);
     const pipRInfo = getPipetteZ(sim.pipR, false);
-    const maxZ = Math.max(
-      200,
-      ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600),
-      collectorZ,
-      pipAInfo.headZ,
-      pipRInfo.headZ
-    );
-    const scale = Math.min(
-      world.mmToPx || 1,
-      innerW / Math.max(1, maxY),
-      innerH / Math.max(1, maxZ)
-    );
+    const maxZ = computeMaxZ();
     const visibleZ = maxZ;
     const sy = scale;
     const sz = scale;
