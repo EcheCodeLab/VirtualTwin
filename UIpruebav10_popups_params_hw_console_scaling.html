@@ -596,6 +596,13 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     plateD_mm: 85.48,
     wellPitch_mm: 9.0,   // 96-well
     tubePitch_mm: 24.0,  // aprox (Falcon rack depende de diseño)
+    plateH_mm: 14.0,
+    rackH_mm: 55.0,
+    tipBoxH_mm: 35.0,
+    tipSmallLen_mm: 52.0,
+    tipLargeLen_mm: 90.0,
+    reservoirH_mm: 80.0,
+    wasteH_mm: 85.0,
 
     // tiempos (s)
     t_tip_pick: 0.28,
@@ -687,26 +694,33 @@ let layout = { modules: [] };
     });
   }
 
-  mods.push({ id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x-60, y_mm: world.rackCollectOrigin.y-60, w_mm: 160, h_mm: 160, z_mm: 0, notes: "Rack entrada" });
-  mods.push({ id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x-60, y_mm: world.rackPipetteOrigin.y-60, w_mm: 160, h_mm: 160, z_mm: 0, notes: "Rack en estación" });
-  mods.push({ id: "pipA", name: "Pipeta A", x_mm: world.pipAHome.x-60, y_mm: world.pipAHome.y-60, w_mm: 140, h_mm: 140, z_mm: 120, notes: "Alícuotas" });
-  mods.push({ id: "pipR", name: "Pipeta R", x_mm: world.pipRHome.x-60, y_mm: world.pipRHome.y-60, w_mm: 140, h_mm: 140, z_mm: 120, notes: "Reactivo" });
-  mods.push({ id: "plate_st1", name: "Placa ST1", x_mm: world.plateSt1.x-70, y_mm: world.plateSt1.y-55, w_mm: 140, h_mm: 110, z_mm: 0, notes: "Estación 1" });
-  mods.push({ id: "plate_st2", name: "Placa ST2", x_mm: world.plateSt2.x-70, y_mm: world.plateSt2.y-55, w_mm: 140, h_mm: 110, z_mm: 0, notes: "Estación 2" });
-  mods.push({ id: "plate_buffer", name: "Buffer placas", x_mm: world.plateBufferPos.x-60, y_mm: world.plateBufferPos.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Buffer intermedio" });
-  mods.push({ id: "plate_stack", name: "Stack final", x_mm: world.plateStackPos.x-60, y_mm: world.plateStackPos.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Stack final" });
-  mods.push({ id: "reservoir", name: "Reservorio", x_mm: world.reservoir.x-50, y_mm: world.reservoir.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Reactivo" });
-  mods.push({ id: "waste", name: "Waste", x_mm: world.waste.x-50, y_mm: world.waste.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Descarte" });
-  mods.push({ id: "wash", name: "Waste lavado", x_mm: world.washWaste.x-50, y_mm: world.washWaste.y-50, w_mm: 100, h_mm: 100, z_mm: 0, notes: "Lavado columnas" });
-  mods.push({ id: "plate_mag", name: "Mag. placas", x_mm: world.plateMag.x-60, y_mm: world.plateMag.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Magazine placas" });
-  mods.push({ id: "rack_mag", name: "Mag. racks", x_mm: world.rackMag.x-60, y_mm: world.rackMag.y-60, w_mm: 120, h_mm: 120, z_mm: 0, notes: "Magazine racks" });
-  mods.push({ id: "controller", name: "Controlador", x_mm: world.controllerBox.x-40, y_mm: world.controllerBox.y-40, w_mm: 80, h_mm: 80, z_mm: 0, notes: "Electrónica" });
+  const plateW = Math.max(80, cfg.plateW_mm || 128);
+  const plateD = Math.max(60, cfg.plateD_mm || 86);
+  const rackMargin = 20;
+  const rackW = Math.max(90, (cfg.M - 1) * world.tubePitch + rackMargin * 2);
+  const rackD = Math.max(90, (cfg.N - 1) * world.tubePitch + rackMargin * 2);
+  const pipBox = 120;
+
+  mods.push({ id: "rack_collect", name: "Rack colecta", x_mm: world.rackCollectOrigin.x - rackW/2, y_mm: world.rackCollectOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack entrada" });
+  mods.push({ id: "rack_pip", name: "Rack pipeteo", x_mm: world.rackPipetteOrigin.x - rackW/2, y_mm: world.rackPipetteOrigin.y - rackD/2, w_mm: rackW, h_mm: rackD, z_mm: cfg.rackH_mm, notes: "Rack en estación" });
+  mods.push({ id: "pipA", name: "Pipeta A", x_mm: world.pipAHome.x - pipBox/2, y_mm: world.pipAHome.y - pipBox/2, w_mm: pipBox, h_mm: pipBox, z_mm: 140, notes: "Alícuotas" });
+  mods.push({ id: "pipR", name: "Pipeta R", x_mm: world.pipRHome.x - pipBox/2, y_mm: world.pipRHome.y - pipBox/2, w_mm: pipBox, h_mm: pipBox, z_mm: 140, notes: "Reactivo" });
+  mods.push({ id: "plate_st1", name: "Placa ST1", x_mm: world.plateSt1.x - plateW/2, y_mm: world.plateSt1.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Estación 1" });
+  mods.push({ id: "plate_st2", name: "Placa ST2", x_mm: world.plateSt2.x - plateW/2, y_mm: world.plateSt2.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Estación 2" });
+  mods.push({ id: "plate_buffer", name: "Buffer placas", x_mm: world.plateBufferPos.x - plateW/2, y_mm: world.plateBufferPos.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Buffer intermedio" });
+  mods.push({ id: "plate_stack", name: "Stack final", x_mm: world.plateStackPos.x - plateW/2, y_mm: world.plateStackPos.y - plateD/2, w_mm: plateW, h_mm: plateD, z_mm: cfg.plateH_mm, notes: "Stack final" });
+  mods.push({ id: "reservoir", name: "Reservorio", x_mm: world.reservoir.x-50, y_mm: world.reservoir.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.reservoirH_mm, notes: "Reactivo" });
+  mods.push({ id: "waste", name: "Waste", x_mm: world.waste.x-50, y_mm: world.waste.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Descarte" });
+  mods.push({ id: "wash", name: "Waste lavado", x_mm: world.washWaste.x-50, y_mm: world.washWaste.y-50, w_mm: 100, h_mm: 100, z_mm: cfg.wasteH_mm, notes: "Lavado columnas" });
+  mods.push({ id: "plate_mag", name: "Mag. placas", x_mm: world.plateMag.x-60, y_mm: world.plateMag.y-60, w_mm: 120, h_mm: 120, z_mm: 140, notes: "Magazine placas" });
+  mods.push({ id: "rack_mag", name: "Mag. racks", x_mm: world.rackMag.x-60, y_mm: world.rackMag.y-60, w_mm: 120, h_mm: 120, z_mm: 140, notes: "Magazine racks" });
+  mods.push({ id: "controller", name: "Controlador", x_mm: world.controllerBox.x-40, y_mm: world.controllerBox.y-40, w_mm: 80, h_mm: 80, z_mm: 60, notes: "Electrónica" });
 
   world.smallBoxTLs.forEach((tl, idx) => {
-    mods.push({ id: `tips_small_${idx+1}`, name: `Tip box SMALL ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: cfg.plateW_mm, h_mm: cfg.plateD_mm, z_mm: 0, notes: "Cajas tips SMALL" });
+    mods.push({ id: `tips_small_${idx+1}`, name: `Tip box SMALL ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: plateW, h_mm: plateD, z_mm: cfg.tipBoxH_mm + cfg.tipSmallLen_mm, notes: "Cajas tips SMALL" });
   });
   world.largeBoxTLs.forEach((tl, idx) => {
-    mods.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: cfg.plateW_mm, h_mm: cfg.plateD_mm, z_mm: 0, notes: "Cajas tips LARGE" });
+    mods.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: plateW, h_mm: plateD, z_mm: cfg.tipBoxH_mm + cfg.tipLargeLen_mm, notes: "Cajas tips LARGE" });
   });
 
     layout.modules = mods;
@@ -758,6 +772,9 @@ const ioMap = [
   const GAP = Math.max(0, cfg.moduleGap_mm || 80);
   const M = Math.max(0, cfg.outerMargin_mm || 40);
   const LANE = Math.max(40, cfg.lane_mm || 120);
+  const plateW = Math.max(80, cfg.plateW_mm || 128);
+  const plateD = Math.max(60, cfg.plateD_mm || 86);
+  const tipGap = 12;
 
   // Standards (mm)
   world.tipPitchSmall = Math.max(6, cfg.wellPitch_mm || 9);
@@ -809,45 +826,61 @@ const ioMap = [
 
   // ===== M1 anchors =====
   world.columnOut =     { x: x1 + 70,          y: y0 + 70 };
-  world.collectorHome = { x: x1 + 90,          y: y0 + 130 };
-  world.rackCollectOrigin = { x: x1 + W*0.55,  y: y0 + D*0.55 };
-  world.washWaste =     { x: x1 + 70,          y: y0 + D - 70 };
-  world.rackMag =       { x: x1 + W - 70,      y: y0 + D - 70 };
-  world.rackMagZ =      { x: x1 + W - 160,     y: y0 + D - 160, w: 120, d: 120 };
+  world.collectorHome = { x: x1 + 100,         y: y0 + 130 };
+  world.rackCollectOrigin = { x: x1 + W*0.62,  y: y0 + D*0.50 };
+  world.washWaste =     { x: x1 + 90,          y: y0 + D - 80 };
+  world.rackMag =       { x: x1 + W - 85,      y: y0 + D - 80 };
+  world.rackMagZ =      { x: x1 + W - 170,     y: y0 + D - 170, w: 130, d: 130 };
 
   // ===== M2 anchors =====
-  world.rackPipetteOrigin = { x: x2 + 120,     y: y0 + D*0.62 };
-  world.pipAHome =          { x: x2 + W*0.55,  y: y0 + 90 };
-  world.plateSt1 =          { x: x2 + W*0.60,  y: y0 + D*0.25 };
-  world.plateBufferPos =    { x: x2 + W*0.88,  y: y0 + D*0.45 };
-  world.plateMag =          { x: x2 + W*0.20,  y: y0 + D - 70 };
-  world.plateMagZ =         { x: x2 + 40,      y: y0 + D - 160, w: 120, d: 120 };
+  world.pipAHome =          { x: x2 + W*0.24,  y: y0 + 90 };
+  world.plateSt1 =          { x: x2 + W*0.72,  y: y0 + D*0.22 };
+  world.rackPipetteOrigin = { x: x2 + W*0.28,  y: y0 + D*0.56 };
+  world.plateBufferPos =    { x: x2 + W*0.74,  y: y0 + D*0.52 };
+  world.plateMag =          { x: x2 + W*0.18,  y: y0 + D - 80 };
+  world.plateMagZ =         { x: x2 + 30,      y: y0 + D - 170, w: 130, d: 130 };
 
-  // tips SMALL (hasta 6 cajas) dentro de M2
-  world.smallBoxTLs = [
-    {x: x2 + 40,  y: y0 + D - 210},
-    {x: x2 + 190, y: y0 + D - 210},
-    {x: x2 + 340, y: y0 + D - 210},
-    {x: x2 + 40,  y: y0 + D - 110},
-    {x: x2 + 190, y: y0 + D - 110},
-    {x: x2 + 340, y: y0 + D - 110},
-  ];
+  // tips SMALL (hasta 6 cajas) dentro de M2, bloque inferior derecho
+  const smallCols = 3;
+  const smallRows = 2;
+  const smallBlockW = smallCols * plateW + (smallCols - 1) * tipGap;
+  const smallBlockH = smallRows * plateD + (smallRows - 1) * tipGap;
+  const smallStartX = x2 + W - smallBlockW - 30;
+  const smallStartY = y0 + D - smallBlockH - 30;
+  world.smallBoxTLs = [];
+  for (let r=0;r<smallRows;r++){
+    for (let c=0;c<smallCols;c++){
+      world.smallBoxTLs.push({
+        x: smallStartX + c*(plateW + tipGap),
+        y: smallStartY + r*(plateD + tipGap)
+      });
+    }
+  }
 
   // ===== M3 anchors =====
-  world.pipRHome =          { x: x3 + W*0.55,  y: y0 + 90 };
-  world.plateSt2 =          { x: x3 + W*0.60,  y: y0 + D*0.25 };
-  world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.35 };
-  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.55 };
-  world.plateStackPos =     { x: x3 + W*0.88,  y: y0 + D*0.55 };
-  world.plateStackZ =       { x: x3 + W - 160, y: y0 + D - 160, w: 120, d: 120 };
+  world.pipRHome =          { x: x3 + W*0.26,  y: y0 + 90 };
+  world.plateSt2 =          { x: x3 + W*0.72,  y: y0 + D*0.22 };
+  world.reservoir =         { x: x3 + W*0.26,  y: y0 + D*0.40 };
+  world.waste =             { x: x3 + W*0.26,  y: y0 + D*0.62 };
+  world.plateStackPos =     { x: x3 + W*0.82,  y: y0 + D*0.58 };
+  world.plateStackZ =       { x: x3 + W - 170, y: y0 + D - 170, w: 130, d: 130 };
 
-  // tips LARGE dentro de M3
-  world.largeBoxTLs = [
-    {x: x3 + 40,  y: y0 + D - 210},
-    {x: x3 + 220, y: y0 + D - 210},
-    {x: x3 + 40,  y: y0 + D - 110},
-    {x: x3 + 220, y: y0 + D - 110},
-  ];
+  // tips LARGE dentro de M3, bloque inferior izquierdo
+  const largeCols = 2;
+  const largeRows = 2;
+  const largeBlockW = largeCols * plateW + (largeCols - 1) * tipGap;
+  const largeBlockH = largeRows * plateD + (largeRows - 1) * tipGap;
+  const largeStartX = x3 + 30;
+  const largeStartY = y0 + D - largeBlockH - 30;
+  world.largeBoxTLs = [];
+  for (let r=0;r<largeRows;r++){
+    for (let c=0;c<largeCols;c++){
+      world.largeBoxTLs.push({
+        x: largeStartX + c*(plateW + tipGap),
+        y: largeStartY + r*(plateD + tipGap)
+      });
+    }
+  }
 
   // Controller (para overlay)
   world.controllerBox = { x: x1 + 20, y: y0 + 240 };
@@ -1619,10 +1652,10 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   // --- NEW --- Engineering XZ view inset
   function drawEngineeringXZ(){
     const insetW = 320;
-    const insetH = 140;
+    const insetH = 160;
     const pad = 12;
     const left = BASE_CANVAS_W - insetW - 18;
-    const top = 18;
+    const top = BASE_CANVAS_H - insetH - 18;
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -1640,7 +1673,36 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const baseY = top + insetH - pad;
 
     const maxX = world.totalW_mm || 1;
-    const maxZ = Math.max(200, ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600));
+    const defaultTravelZ = 180;
+    const tipSmallLen = cfg.tipSmallLen_mm || 52;
+    const tipLargeLen = cfg.tipLargeLen_mm || 90;
+    const plateZ = cfg.plateH_mm || 14;
+    const rackZ = cfg.rackH_mm || 55;
+    const tipBoxZ = cfg.tipBoxH_mm || 35;
+    const wasteZ = cfg.wasteH_mm || 85;
+    const reservoirZ = cfg.reservoirH_mm || 80;
+
+    const getPipetteZ = (pip, isSmall) => {
+      const tipLen = isSmall ? tipSmallLen : tipLargeLen;
+      if (pip.sub === "GET_TIP") return { headZ: tipBoxZ + tipLen, tipLen, surfaceZ: tipBoxZ };
+      if (pip.sub === "DROP_TIP" || pip.sub === "DROP_TIP_END") return { headZ: wasteZ + tipLen, tipLen, surfaceZ: wasteZ };
+      if (pip.sub === "DISPENSE" || pip.sub === "DISPENSE_WELL") return { headZ: plateZ + tipLen, tipLen, surfaceZ: plateZ };
+      if (pip.sub === "ASPIRATE") return { headZ: rackZ + tipLen, tipLen, surfaceZ: rackZ };
+      if (pip.sub === "ASPIRATE_RES" || pip.sub === "MOVE_TO_RES") return { headZ: reservoirZ + tipLen, tipLen, surfaceZ: reservoirZ };
+      return { headZ: defaultTravelZ, tipLen: pip.hasTip ? tipLen : 0, surfaceZ: 0 };
+    };
+
+    const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
+    const pipAInfo = getPipetteZ(sim.pipA, true);
+    const pipRInfo = getPipetteZ(sim.pipR, false);
+
+    const maxZ = Math.max(
+      200,
+      ...layout.modules.map(m => m.z_mm || cfg.moduleH_mm || 600),
+      collectorZ,
+      pipAInfo.headZ,
+      pipRInfo.headZ
+    );
     const sx = innerW / maxX;
     const sz = innerH / maxZ;
 
@@ -1660,14 +1722,39 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       ctx.strokeRect(x, baseY - h, w, h);
     }
 
-    const collectorZ = (sim.collector.state === "COLLECTING" || sim.collector.state === "WASH") ? 40 : 180;
-    const pipAZ = (sim.pipA.sub === "GET_TIP" || sim.pipA.sub === "ASPIRATE" || sim.pipA.sub === "DISPENSE") ? 35 : 160;
-    const pipRZ = (sim.pipR.sub === "GET_TIP" || sim.pipR.sub === "ASPIRATE_RES" || sim.pipR.sub === "DISPENSE_WELL") ? 35 : 160;
+    const drawSurface = (label, xCenter, wMm, zMm, color) => {
+      const x = baseX + (xCenter - wMm/2) * sx;
+      const w = wMm * sx;
+      const h = zMm * sz;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "rgba(232,240,247,0.3)";
+      ctx.fillRect(x, baseY - h, w, h);
+      ctx.strokeRect(x, baseY - h, w, h);
+      ctx.fillStyle = "rgba(232,240,247,0.6)";
+      ctx.font = "9px system-ui";
+      ctx.fillText(label, x + 4, baseY - h - 4);
+    };
+
+    const plateW = Math.max(80, cfg.plateW_mm || 128);
+    const tipBoxW = plateW;
+    const rackW = Math.max(90, (cfg.M - 1) * world.tubePitch + 40);
+    const smallXs = world.smallBoxTLs.map(t => t.x);
+    const largeXs = world.largeBoxTLs.map(t => t.x);
+    const smallRange = smallXs.length ? { min: Math.min(...smallXs), max: Math.max(...smallXs) + tipBoxW } : null;
+    const largeRange = largeXs.length ? { min: Math.min(...largeXs), max: Math.max(...largeXs) + tipBoxW } : null;
+
+    drawSurface("Placa ST1", world.plateSt1.x, plateW, plateZ, "rgba(56,189,248,0.18)");
+    drawSurface("Placa ST2", world.plateSt2.x, plateW, plateZ, "rgba(56,189,248,0.18)");
+    drawSurface("Rack", world.rackPipetteOrigin.x, rackW, rackZ, "rgba(34,197,94,0.18)");
+    drawSurface("Reservorio", world.reservoir.x, 80, reservoirZ, "rgba(148,163,184,0.18)");
+    drawSurface("Waste", world.waste.x, 80, wasteZ, "rgba(239,68,68,0.18)");
+    if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, tipBoxZ + tipSmallLen, "rgba(147,197,253,0.14)");
+    if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, tipBoxZ + tipLargeLen, "rgba(74,222,128,0.14)");
 
     const heads = [
-      { label: "C", x: sim.collectorHead.x, z: collectorZ, color: "#e8f0f7" },
-      { label: "A", x: sim.pipA.x, z: pipAZ, color: "#fbbf24" },
-      { label: "R", x: sim.pipR.x, z: pipRZ, color: "#4ade80" }
+      { label: "C", x: sim.collectorHead.x, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
+      { label: "A", x: sim.pipA.x, z: pipAInfo.headZ, tipLen: pipAInfo.tipLen, color: "#fbbf24" },
+      { label: "R", x: sim.pipR.x, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#4ade80" }
     ];
 
     for (const h of heads){
@@ -1677,6 +1764,14 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
       ctx.beginPath();
       ctx.arc(hx, hy, 4, 0, Math.PI*2);
       ctx.fill();
+      if (h.tipLen > 0){
+        ctx.strokeStyle = h.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx, hy + h.tipLen * sz);
+        ctx.stroke();
+      }
       ctx.font = "10px system-ui";
       ctx.fillText(h.label, hx + 6, hy + 3);
     }
