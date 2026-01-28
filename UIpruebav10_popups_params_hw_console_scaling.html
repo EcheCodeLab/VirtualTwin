@@ -742,6 +742,9 @@ const world = {
   plateInM3:   { x: 0, y: 0 },
   plateOutM3:  { x: 0, y: 0 },
   rackQueueSlots: [],
+  rackEntryExternal: { x: 0, y: 0 },
+  rackExitM2External: { x: 0, y: 0 },
+  plateEntryM3External: { x: 0, y: 0 },
 
   controllerBox: { x: 0, y: 0 }
 };
@@ -790,7 +793,7 @@ let layout = { modules: [] };
     mods.push({ id: `tips_small_${idx+1}`, name: `Tip box SMALL ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: plateW, h_mm: plateD, z_mm: cfg.tipBoxH_mm + cfg.tipSmallLen_mm, notes: "Cajas tips SMALL" });
   });
   world.largeBoxTLs.forEach((tl, idx) => {
-    mods.push({ id: `tips_large_${idx+1}`, name: `Tip box LARGE ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: plateW, h_mm: plateD, z_mm: cfg.tipBoxH_mm + cfg.tipLargeLen_mm, notes: "Cajas tips LARGE" });
+    mods.push({ id: `tips_large_${idx+1}`, name: `Tip box AMARILLO ${idx+1}`, x_mm: tl.x, y_mm: tl.y, w_mm: plateW, h_mm: plateD, z_mm: cfg.tipBoxH_mm + cfg.tipLargeLen_mm, notes: "Cajas tips 300 µL" });
   });
 
     layout.modules = mods;
@@ -860,7 +863,7 @@ const ioMap = [
 
   // Standards (mm)
   world.tipPitchSmall = Math.max(6, cfg.wellPitch_mm || 9);
-  world.tipPitchLarge = 18.0;
+  world.tipPitchLarge = Math.max(6, cfg.wellPitch_mm || 9);
 
   // total footprint to render
   const gap12 = GAP + 160;
@@ -928,6 +931,7 @@ const ioMap = [
   world.rackMagZ =      { x: x1 + W - 170,     y: y0 + D - 170, w: 130, d: 130 };
   world.rackInputM1 =   { x: x1 + W*0.22,      y: y0 + D - 30 };
   world.rackExitM1 =    { x: x1 + W - 20,      y: world.rackCollectOrigin.y };
+  world.rackEntryExternal = { x: world.rackInputM1.x, y: y0 + D + LANE + 60 };
 
   // ===== M2 anchors =====
   world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
@@ -939,6 +943,7 @@ const ioMap = [
   world.rackInM2 =          { x: x2 + 20,      y: world.rackPipetteOrigin.y };
   world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
   world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
+  world.rackExitM2External = { x: world.rackOutM2.x, y: y0 + D + LANE + 60 };
 
   const rackQueueSpacing = 160;
   const rackQueueY = world.rackCollectOrigin.y;
@@ -979,6 +984,7 @@ const ioMap = [
   world.plateStackZ =       { x: x3 + W - 170, y: y0 + D - 170, w: 130, d: 130 };
   world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.35 };
   world.plateOutM3 =        { x: x3 + W*0.55,  y: y0 + D - 30 };
+  world.plateEntryM3External = { x: world.plateInM3.x, y: y0 + D + LANE + 60 };
 
   // tips LARGE dentro de M3, bloque inferior izquierdo (más compacto)
   const largeCols = 1;
@@ -1026,7 +1032,7 @@ layoutWorld();
   }
   function tipIndexToPosLarge(idx){
     const tl = currentLargeBoxTL();
-    const r = Math.floor(idx/6), c = idx%6;
+    const r = Math.floor(idx/12), c = idx%12;
     return { x: tl.x + c*world.tipPitchLarge, y: tl.y + r*world.tipPitchLarge };
   }
 
@@ -1079,10 +1085,10 @@ layoutWorld();
   function newRack(){
     return {
       id: ids.rack++,
-      x: world.rackCollectOrigin.x,
-      y: world.rackCollectOrigin.y,
-      tx: world.rackCollectOrigin.x,
-      ty: world.rackCollectOrigin.y,
+      x: world.rackEntryExternal.x,
+      y: world.rackEntryExternal.y,
+      tx: world.rackEntryExternal.x,
+      ty: world.rackEntryExternal.y,
       tubes_uL: new Array(cfg.rackRows*cfg.rackCols).fill(0),
       tubeIndex: 0,
       fracIndex: 0,
@@ -1120,7 +1126,7 @@ layoutWorld();
     smallBoxSlot: 0,
     largeBoxSlot: 0,
     tipsSmallUsed: new Array(96).fill(false),
-    tipsLargeUsed: new Array(24).fill(false),
+    tipsLargeUsed: new Array(96).fill(false),
 
     rackQueue: [],
     plateBuffer: [],
@@ -1194,7 +1200,7 @@ layoutWorld();
   function loadNextLargeBox(){
     sim.largeBoxSlot++;
     if (sim.largeBoxSlot >= sim.largeBoxesTotal) { setAlarm("TIPS_LARGE_BOXES_EMPTY", "Se agotaron las cajas de tips LARGE."); return false; }
-    sim.tipsLargeUsed = new Array(24).fill(false);
+    sim.tipsLargeUsed = new Array(96).fill(false);
     sim.tipLargeChangeT = 0.9;
     log(`Tips LARGE: caja agotada → cambiando a caja #${sim.largeBoxSlot+1}/${sim.largeBoxesTotal}.`, "status-warn");
     return true;
@@ -1247,9 +1253,21 @@ layoutWorld();
           C.rack = newRack();
           log(`Colector: cargó rack ID=${C.rack.id} (columna ${C.currentColumnIdx+1}/${cfg.numColumns}).`, "status-ok");
         }
-        if (C.fracIndex <= 0) C.fracIndex = 1;
-        C.state = "SELECT_COLUMN";
+        C.state = "MOVE_RACK_IN";
         break;
+
+      case "MOVE_RACK_IN": {
+        const r = C.rack;
+        r.tx = world.rackInputM1.x;
+        r.ty = world.rackInputM1.y;
+        moveObj(r, dt, cfg.speedRackTransfer);
+        const arrived = (Math.hypot(r.tx - r.x, r.ty - r.y) < 0.06);
+        if (arrived){
+          if (C.fracIndex <= 0) C.fracIndex = 1;
+          C.state = "SELECT_COLUMN";
+        }
+        break;
+      }
 
       case "SELECT_COLUMN": {
         updateValve(C.currentColumnIdx + 1);
@@ -1516,10 +1534,22 @@ layoutWorld();
         sim.plateSt1 = null;
 
         log(`Alícuotas: terminó con rack ID=${A.rack.id} (consumido).`, "status-ok");
-        A.rack = null;
-        A.w = 0;
-        A.sub = "WAIT_RACK";
-        A.tx = world.pipAHome.x; A.ty = world.pipAHome.y;
+        A.sub = "EJECT_RACK";
+        break;
+      }
+
+      case "EJECT_RACK": {
+        if (!A.rack){ A.sub="WAIT_RACK"; break; }
+        A.rack.tx = world.rackExitM2External.x;
+        A.rack.ty = world.rackExitM2External.y;
+        moveObj(A.rack, dt, cfg.speedRackTransfer);
+        const arrived = (Math.hypot(A.rack.tx - A.rack.x, A.rack.ty - A.rack.y) < 0.06);
+        if (arrived){
+          A.rack = null;
+          A.w = 0;
+          A.sub = "WAIT_RACK";
+          A.tx = world.pipAHome.x; A.ty = world.pipAHome.y;
+        }
         break;
       }
     }
@@ -1535,7 +1565,7 @@ layoutWorld();
     const plate = sim.plateBuffer.shift();
     const ok = requestPlateMove(
       plate,
-      {x: world.plateBufferPos.x, y: world.plateBufferPos.y},
+      {x: world.plateEntryM3External.x, y: world.plateEntryM3External.y},
       {x: world.plateSt2.x, y: world.plateSt2.y},
       1.0,
       () => { sim.plateSt2 = plate; log(`Placa ID=${plate.id} llegó a Estación 2.`, "status-ok"); }
@@ -1592,7 +1622,7 @@ layoutWorld();
             R.phaseT=0;
             sim.tipsLargeUsed[idx] = true;
             R.tipIdx = idx;
-            R.hasTip=true; R.tipType="LARGE"; R.volInTip=0;
+            R.hasTip=true; R.tipType="YELLOW"; R.volInTip=0;
             R.w = 0;
             R.sub = "MOVE_TO_RES";
           }
@@ -1713,12 +1743,19 @@ layoutWorld();
     const rack = sim.collector.rack;
     if (rack){
       const movingRack = Math.abs(rack.tx - rack.x) > 0.06 || Math.abs(rack.ty - rack.y) > 0.06;
-      add("rack_conv", "Motor cinta rack longitudinal", {x: rack.x+10, y: rack.y-34}, movingRack, "motor");
+    add("rack_conv", "Motor cinta rack longitudinal", {x: rack.x+10, y: rack.y-34}, movingRack, "motor");
     } else {
       add("rack_conv", "Motor cinta rack longitudinal", {x: world.rackCollectOrigin.x+10, y: world.rackCollectOrigin.y-34}, false, "motor");
     }
 
+    const movingIn = (sim.collector.state === "MOVE_RACK_IN") && rack;
+    add("rack_in_conv", "Motor cinta entrada racks M1", {x: world.rackInputM1.x, y: world.rackEntryExternal.y - 18}, !!movingIn, "motor");
+
+    const movingOut = (sim.pipA.sub === "EJECT_RACK" && sim.pipA.rack);
+    add("rack_out_conv", "Motor cinta salida racks M2", {x: world.rackOutM2.x, y: world.rackExitM2External.y - 18}, !!movingOut, "motor");
+
     add("plate_conv", "Motor cinta placas", {x: 650, y: (world.conveyorMain.y || 0)+5}, !!sim.movingPlate, "motor");
+    add("plate_in_m3", "Motor cinta placas entrada M3", {x: world.plateEntryM3External.x + 20, y: world.plateEntryM3External.y - 18}, !!sim.movingPlate, "motor");
 
     const A = sim.pipA;
     const dxA = Math.abs(A.tx - A.x), dyA = Math.abs(A.ty - A.y);
@@ -1967,7 +2004,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     drawSurface("Waste M2", world.wasteA.x, 80, wasteZ, "rgba(239,68,68,0.18)");
     drawSurface("Waste M3", world.wasteR.x, 80, wasteZ, "rgba(239,68,68,0.18)");
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, tipBoxZ + tipSmallLen, "rgba(147,197,253,0.14)");
-    if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, tipBoxZ + tipLargeLen, "rgba(74,222,128,0.14)");
+    if (largeRange) drawSurface("Tips AMARILLO", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, tipBoxZ + tipLargeLen, "rgba(250,204,21,0.18)");
 
     const rackSeen = new Set();
     const racks = [];
@@ -1986,7 +2023,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const heads = [
       { label: "C", x: sim.collectorHead.x, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
       { label: "A", x: sim.pipA.x, z: pipAInfo.headZ, tipLen: pipAInfo.tipLen, color: "#fbbf24" },
-      { label: "R", x: sim.pipR.x, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#4ade80" }
+      { label: "R", x: sim.pipR.x, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#facc15" }
     ];
 
     for (const h of heads){
@@ -2100,7 +2137,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     drawSurface("Waste M2", world.wasteA.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
     drawSurface("Waste M3", world.wasteR.y, 80, cfg.wasteH_mm, "rgba(239,68,68,0.18)");
     if (smallRange) drawSurface("Tips SMALL", (smallRange.min + smallRange.max)/2, smallRange.max - smallRange.min, cfg.tipBoxH_mm + cfg.tipSmallLen_mm, "rgba(147,197,253,0.14)");
-    if (largeRange) drawSurface("Tips LARGE", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, cfg.tipBoxH_mm + cfg.tipLargeLen_mm, "rgba(74,222,128,0.14)");
+    if (largeRange) drawSurface("Tips AMARILLO", (largeRange.min + largeRange.max)/2, largeRange.max - largeRange.min, cfg.tipBoxH_mm + cfg.tipLargeLen_mm, "rgba(250,204,21,0.18)");
 
     const rackSeen = new Set();
     const racks = [];
@@ -2119,7 +2156,7 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const heads = [
       { label: "C", y: sim.collectorHead.y, z: collectorZ, tipLen: 0, color: "#e8f0f7" },
       { label: "A", y: sim.pipA.y, z: pipAInfo.headZ, tipLen: pipAInfo.tipLen, color: "#fbbf24" },
-      { label: "R", y: sim.pipR.y, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#4ade80" }
+      { label: "R", y: sim.pipR.y, z: pipRInfo.headZ, tipLen: pipRInfo.tipLen, color: "#facc15" }
     ];
 
     for (const h of heads){
@@ -2268,24 +2305,24 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     const tlmm = world.largeBoxTLs[Math.min(boxIdx, world.largeBoxTLs.length-1)];
     const boxW = Math.max(60, cfg.plateW_mm || 127.76);
     const boxD = Math.max(40, cfg.plateD_mm || 85.48);
-    const pitch = Math.max(10, world.tipPitchLarge || 18);
+    const pitch = Math.max(6, world.tipPitchLarge || 9);
 
-    const gridW = 5*pitch, gridH = 3*pitch; // 6x4
+    const gridW = 11*pitch, gridH = 7*pitch;
     const marginX = Math.max(4, (boxW-gridW)/2);
     const marginY = Math.max(4, (boxD-gridH)/2);
 
     const tl = mm2px({x: tlmm.x, y: tlmm.y});
     rect(tl.x, tl.y, boxW*world.mmToPx, boxD*world.mmToPx, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
-    drawLabel(`LARGE box #${boxIdx+1}`, tl.x, tl.y-10);
+    drawLabel(`AMARILLO 300µL #${boxIdx+1}`, tl.x, tl.y-10);
 
     if (isActive){
       const base = { x: tlmm.x + marginX, y: tlmm.y + marginY };
       const rpx = Math.max(2.0, 2.4*world.mmToPx);
-      for (let i=0;i<24;i++){
-        const r = Math.floor(i/6), c = i%6;
+      for (let i=0;i<96;i++){
+        const r = Math.floor(i/12), c = i%12;
         const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
         const used = sim.tipsLargeUsed[i];
-        circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
+        circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(250,204,21,0.18)");
       }
     } else {
       ctx.save();
@@ -2429,6 +2466,10 @@ if (world.modules.length >= 3){
     rect(inM1.x - gateRackW/2, inM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Entrada racks", inM1.x-38, inM1.y+22);
 
+    const rackInExt = mm2px(world.rackEntryExternal);
+    rect(inM1.x - 10, rackInExt.y - 14, 20, (inM1.y - rackInExt.y) + 14, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Cinta entrada racks", inM1.x-48, rackInExt.y - 8);
+
     const exitM1 = mm2px(world.rackExitM1);
     rect(exitM1.x - gateRackW/2, exitM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Compuerta rack → M2", exitM1.x-64, exitM1.y-22);
@@ -2441,6 +2482,10 @@ if (world.modules.length >= 3){
     rect(rackOutM2.x - gateRackW/2, rackOutM2.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Rack salida M2", rackOutM2.x-42, rackOutM2.y+22);
 
+    const rackOutExt = mm2px(world.rackExitM2External);
+    rect(rackOutM2.x - 10, rackOutM2.y, 20, (rackOutExt.y - rackOutM2.y) + 12, "rgba(59,130,246,0.25)", "rgba(59,130,246,0.08)", 1);
+    drawLabel("Cinta salida racks", rackOutM2.x-46, rackOutExt.y - 6);
+
     const plateInM2 = mm2px(world.plateInM2);
     rect(plateInM2.x-14, plateInM2.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
     drawLabel("Placas in/out M2", plateInM2.x-50, plateInM2.y+22);
@@ -2448,6 +2493,10 @@ if (world.modules.length >= 3){
     const plateInM3 = mm2px(world.plateInM3);
     rect(plateInM3.x-10, plateInM3.y-16, 20, 32, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
     drawLabel("Placa entrada M3", plateInM3.x-46, plateInM3.y-22);
+
+    const plateInExt = mm2px(world.plateEntryM3External);
+    rect(plateInM3.x - 8, plateInExt.y - 10, 16, (plateInM3.y - plateInExt.y) + 10, "rgba(56,189,248,0.25)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Cinta entrada placas M3", plateInM3.x-58, plateInExt.y - 6);
 
     const plateOutM3 = mm2px(world.plateOutM3);
     rect(plateOutM3.x-14, plateOutM3.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
@@ -2471,7 +2520,7 @@ if (world.modules.length >= 3){
     }
     if (sim.pipR.tipDropT > 0){
       const tR = clamp(sim.pipR.tipDropT / 0.6, 0, 1);
-      if (tR > 0) drawTipDrop(wR.x, wR.y - 6 + (1 - tR) * 16, "#4ade80", tR);
+      if (tR > 0) drawTipDrop(wR.x, wR.y - 6 + (1 - tR) * 16, "#facc15", tR);
     }
 
     const pm = mm2px(world.plateMag);
@@ -2530,8 +2579,8 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     drawLabel(`Pip A (${sim.pipA.tipType})`, ha.x+12, ha.y-12);
 
     const hr = mm2px(sim.pipR);
-    crosshair(hr.x,hr.y,9,"#4ade80"); circle(hr.x,hr.y,6,"rgba(74,222,128,0.10)","#4ade80");
-    if (sim.pipR.hasTip || sim.pipR.sub === "GET_TIP") drawTipMarker(hr.x, hr.y, "#4ade80");
+    crosshair(hr.x,hr.y,9,"#facc15"); circle(hr.x,hr.y,6,"rgba(250,204,21,0.12)","#facc15");
+    if (sim.pipR.hasTip || sim.pipR.sub === "GET_TIP") drawTipMarker(hr.x, hr.y, "#facc15");
     drawLabel(`Pip R (${sim.pipR.tipType})`, hr.x+12, hr.y-12);
 
     // drops visual
@@ -2587,8 +2636,8 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     vPlates.textContent = `ST1:${sim.plateSt1?sim.plateSt1.id:"-"} / ST2:${sim.plateSt2?sim.plateSt2.id:"-"} / Stack:${sim.stackedPlates}`;
     vMag.textContent = `${sim.plateSupply} / ${sim.rackSupply}`;
 
-    vBoxes.textContent = `SMALL ${Math.min(sim.smallBoxSlot+1, Math.max(0,sim.smallBoxesTotal))}/${Math.max(0,sim.smallBoxesTotal)} · LARGE ${Math.min(sim.largeBoxSlot+1, Math.max(0,sim.largeBoxesTotal))}/${Math.max(0,sim.largeBoxesTotal)}`;
-    vTips.textContent = `SMALL ${tipsRemaining(sim.tipsSmallUsed)} · LARGE ${tipsRemaining(sim.tipsLargeUsed)}`;
+    vBoxes.textContent = `SMALL ${Math.min(sim.smallBoxSlot+1, Math.max(0,sim.smallBoxesTotal))}/${Math.max(0,sim.smallBoxesTotal)} · AMARILLO ${Math.min(sim.largeBoxSlot+1, Math.max(0,sim.largeBoxesTotal))}/${Math.max(0,sim.largeBoxesTotal)}`;
+    vTips.textContent = `SMALL ${tipsRemaining(sim.tipsSmallUsed)} · AMARILLO ${tipsRemaining(sim.tipsLargeUsed)}`;
     vWaste.textContent = `Res ${Math.round(sim.reservoir_uL)} µL · tips ${sim.wasteTipCount} · liq ${Math.round(sim.wasteLiquid_uL)} µL`;
 
     if (sim.alarm) vAlarm.innerHTML = `<span class="status-bad">● ${sim.alarm.code}</span>`;
@@ -2639,16 +2688,16 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
     const tipsSmallUsed = sim.smallBoxSlot * 96 + (96 - tipsRemaining(sim.tipsSmallUsed));
     const tipsSmallTotal = sim.smallBoxesTotal * 96;
-    const tipsLargeUsed = sim.largeBoxSlot * 24 + (24 - tipsRemaining(sim.tipsLargeUsed));
-    const tipsLargeTotal = sim.largeBoxesTotal * 24;
+    const tipsLargeUsed = sim.largeBoxSlot * 96 + (96 - tipsRemaining(sim.tipsLargeUsed));
+    const tipsLargeTotal = sim.largeBoxesTotal * 96;
     const tipsSmallRemaining = Math.max(0, tipsSmallTotal - tipsSmallUsed);
     const tipsLargeRemaining = Math.max(0, tipsLargeTotal - tipsLargeUsed);
 
     const platesUsed = Math.max(0, cfg.plateSupply - sim.plateSupply);
     const racksUsed = Math.max(0, cfg.rackSupply - sim.rackSupply);
 
-    dashConsumables.textContent = `Tips S/L usados: ${tipsSmallUsed}/${tipsLargeUsed}`;
-    dashTips.textContent = `Tips S/L rem: ${tipsSmallRemaining}/${tipsLargeRemaining}`;
+    dashConsumables.textContent = `Tips S/A usados: ${tipsSmallUsed}/${tipsLargeUsed}`;
+    dashTips.textContent = `Tips S/A rem: ${tipsSmallRemaining}/${tipsLargeRemaining}`;
     dashPlates.textContent = `Placas usadas ${platesUsed} · Racks usados ${racksUsed}`;
     dashWaste.textContent = `Tips ${sim.wasteTipCount}/${cfg.wasteTipCap} · Liq ${Math.round(sim.wasteLiquid_uL)}/${cfg.wasteLiqCap_uL} µL`;
 
@@ -2737,7 +2786,7 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
     sim.smallBoxSlot = 0;
     sim.largeBoxSlot = 0;
     sim.tipsSmallUsed = new Array(96).fill(false);
-    sim.tipsLargeUsed = new Array(24).fill(false);
+  sim.tipsLargeUsed = new Array(96).fill(false);
 
     sim.rackQueue = [];
     sim.plateBuffer = [];
