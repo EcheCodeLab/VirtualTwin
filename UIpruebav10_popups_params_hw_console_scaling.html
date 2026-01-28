@@ -685,6 +685,7 @@ const world = {
   plateInM2:   { x: 0, y: 0 },
   plateInM3:   { x: 0, y: 0 },
   plateOutM3:  { x: 0, y: 0 },
+  rackQueueSlots: [],
 
   controllerBox: { x: 0, y: 0 }
 };
@@ -814,15 +815,22 @@ const ioMap = [
   // Fit into base canvas + engineering insets at same scale
   const padPx = 18;
   const maxZ = computeMaxZ();
-  const insetsGap = 24;
-  const sX = (BASE_CANVAS_W - 3*padPx - insetsGap) / (totalW + totalH);
-  const sY = (BASE_CANVAS_H - 3*padPx) / (totalH + maxZ);
+  const insetPadPx = 12;
+  const insetGapPx = 12;
+  const sX = (BASE_CANVAS_W - 2*padPx - insetGapPx - insetPadPx*2) / (totalW + totalH);
+  const sY = (BASE_CANVAS_H - 2*padPx - insetGapPx - insetPadPx*2) / (totalH + maxZ);
   world.mmToPx = Math.max(0.08, Math.min(sX, sY));
 
   const usedWpx = totalW*world.mmToPx;
   const usedHpx = totalH*world.mmToPx;
-  world.offX = Math.round((BASE_CANVAS_W - usedWpx)/2);
-  world.offY = Math.round((BASE_CANVAS_H - usedHpx)/2);
+  const insetWpx = totalH*world.mmToPx + insetPadPx*2;
+  const insetHpx = maxZ*world.mmToPx + insetPadPx*2;
+  const combinedWpx = usedWpx + insetGapPx + insetWpx;
+  const combinedHpx = usedHpx + insetGapPx + insetHpx;
+  world.engInsetPadPx = insetPadPx;
+  world.engInsetGapPx = insetGapPx;
+  world.offX = Math.round((BASE_CANVAS_W - combinedWpx)/2);
+  world.offY = Math.round((BASE_CANVAS_H - combinedHpx)/2);
 
   // Module origins
   const x1 = M;
@@ -871,6 +879,18 @@ const ioMap = [
   world.rackInM2 =          { x: x2 + 20,      y: world.rackPipetteOrigin.y };
   world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
   world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
+
+  const rackQueueSpacing = 140;
+  const rackQueueY = world.rackCollectOrigin.y;
+  const rackQueueSlots = [];
+  const queueStartX = world.rackInM2.x;
+  const queueMinX = world.rackExitM1.x - 10;
+  for (let i = 0; i < 6; i++){
+    const x = queueStartX - i * rackQueueSpacing;
+    if (x < queueMinX) break;
+    rackQueueSlots.push({ x, y: rackQueueY });
+  }
+  world.rackQueueSlots = rackQueueSlots;
 
   // tips SMALL dentro de M2, bloque inferior derecho (más compacto)
   const smallCols = 2;
@@ -959,6 +979,17 @@ layoutWorld();
     const a = Math.min(1, step/dist);
     obj.x += dx*a; obj.y += dy*a;
     return a >= 1;
+  }
+
+  function updateRackQueue(dt){
+    const slots = world.rackQueueSlots || [];
+    if (!slots.length) return;
+    sim.rackQueue.forEach((rack, idx) => {
+      const slot = slots[Math.min(idx, slots.length - 1)];
+      rack.tx = slot.x;
+      rack.ty = slot.y;
+      moveObj(rack, dt, cfg.speedRackTransfer);
+    });
   }
 
   // ---------- Helpers ----------
@@ -1225,11 +1256,14 @@ layoutWorld();
 
       case "MOVE_RACK_TO_QUEUE": {
         const r = C.rack;
-        r.tx = world.rackPipetteOrigin.x;
-        r.ty = world.rackPipetteOrigin.y;
+        const slots = world.rackQueueSlots || [];
+        const canQueue = slots.length > 0 && sim.rackQueue.length < slots.length;
+        const target = canQueue ? slots[sim.rackQueue.length] : world.rackExitM1;
+        r.tx = target.x;
+        r.ty = target.y;
         moveObj(r, dt, cfg.speedRackTransfer);
         const arrived = (Math.hypot(r.tx - r.x, r.ty - r.y) < 0.06);
-        if (arrived){
+        if (canQueue && arrived){
           r.moving=false;
           sim.rackQueue.push(r);
           log(`Rack ID=${r.id} en cola de alícuotas. (cola racks=${sim.rackQueue.length})`, "status-ok");
@@ -1293,9 +1327,14 @@ layoutWorld();
     moveObj(A, dt, cfg.speedPipA);
 
     if (!A.rack && sim.rackQueue.length > 0){
-      A.rack = sim.rackQueue.shift();
-      A.w = 0;
-      log(`Alícuotas: tomó rack ID=${A.rack.id} (cola racks=${sim.rackQueue.length}).`, "status-ok");
+      const front = sim.rackQueue[0];
+      const slot = (world.rackQueueSlots || [])[0];
+      const frontReady = front && slot && (Math.hypot(front.x - slot.x, front.y - slot.y) < 0.08);
+      if (frontReady){
+        A.rack = sim.rackQueue.shift();
+        A.w = 0;
+        log(`Alícuotas: tomó rack ID=${A.rack.id} (cola racks=${sim.rackQueue.length}).`, "status-ok");
+      }
     }
     if (!A.rack){
       A.sub = "WAIT_RACK";
@@ -1767,12 +1806,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering XZ view inset
   function drawEngineeringXZ(){
-    const pad = 12;
+    const pad = world.engInsetPadPx || 12;
     const scale = world.mmToPx || 1;
     const insetW = world.totalW_mm * scale + pad * 2;
     const insetH = computeMaxZ() * scale + pad * 2;
     const left = world.offX;
-    const top = world.offY + world.totalH_mm * scale + 12;
+    const top = world.offY + world.totalH_mm * scale + (world.engInsetGapPx || 12);
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -1895,12 +1934,12 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
   // --- NEW --- Engineering YZ view inset
   function drawEngineeringYZ(){
-    const pad = 12;
+    const pad = world.engInsetPadPx || 12;
     const scale = world.mmToPx || 1;
     const insetW = world.totalH_mm * scale + pad * 2;
     const insetH = computeMaxZ() * scale + pad * 2;
-    const left = world.offX + world.totalW_mm * scale + 12;
-    const top = world.offY + world.totalH_mm * scale + 12;
+    const left = world.offX + world.totalW_mm * scale + (world.engInsetGapPx || 12);
+    const top = world.offY + world.totalH_mm * scale + (world.engInsetGapPx || 12);
 
     ctx.save();
     ctx.fillStyle = "rgba(15,23,35,0.85)";
@@ -2275,17 +2314,31 @@ if (world.modules.length >= 3){
 
     // racks
     if (sim.collector.rack) drawRack(sim.collector.rack);
+    sim.rackQueue.forEach(rack => {
+      if (rack !== sim.collector.rack && rack !== sim.pipA.rack) drawRack(rack);
+    });
     if (sim.pipA.rack && sim.pipA.rack !== sim.collector.rack) drawRack(sim.pipA.rack);
 
+    const gateRackW = 120 * world.mmToPx;
     const beltY = world.rackCollectOrigin.y;
     const beltTL = mm2px({x: world.modules[0].x + 60, y: beltY - 12});
     rect(beltTL.x, beltTL.y, (world.modules[0].w - 120) * world.mmToPx, 24 * world.mmToPx, "rgba(34,48,65,0.7)", "rgba(15,23,35,0.25)", 1);
     drawLabel("Cinta racks M1", beltTL.x + 8, beltTL.y - 6);
 
+    const transferStart = mm2px({x: world.rackExitM1.x, y: beltY - 12});
+    const transferW = Math.max(0, (world.rackInM2.x - world.rackExitM1.x) * world.mmToPx);
+    rect(transferStart.x, transferStart.y, transferW, 24 * world.mmToPx, "rgba(30,64,90,0.7)", "rgba(15,23,35,0.25)", 1);
+    drawLabel("Cinta transferencia M1→M2", transferStart.x + 8, transferStart.y - 6);
+
+    if (world.rackQueueSlots && world.rackQueueSlots.length){
+      world.rackQueueSlots.forEach((slot, idx) => {
+        const p = mm2px(slot);
+        rect(p.x - gateRackW/2, p.y - 12, gateRackW, 24, idx === 0 ? "rgba(34,197,94,0.18)" : "rgba(59,130,246,0.12)", "rgba(59,130,246,0.25)", 1);
+      });
+    }
+
     const rq = mm2px(world.rackPipetteOrigin);
     drawLabel(`Cola racks: ${sim.rackQueue.length}`, rq.x-20, rq.y+90);
-
-    const gateRackW = 120 * world.mmToPx;
     const inM1 = mm2px(world.rackInputM1);
     rect(inM1.x - gateRackW/2, inM1.y-12, gateRackW, 24, "rgba(59,130,246,0.35)", "rgba(59,130,246,0.08)", 1);
     drawLabel("Entrada racks", inM1.x-38, inM1.y+22);
@@ -3589,6 +3642,7 @@ sim.pipA.tipDropT = Math.max(0, sim.pipA.tipDropT - dt);
 sim.pipR.tipDropT = Math.max(0, sim.pipR.tipDropT - dt);
 
       stepCollector(dt);
+      updateRackQueue(dt);
       stepAliquot(dt);
 
       stepPlateMove(dt);
