@@ -578,6 +578,8 @@ footer { padding: 0 12px 14px; color: var(--muted); font-size: 12px; }
     speedCollector: 120,
     speedPipA: 175,
     speedPipR: 175,
+    speedRackBelt: 140,
+    speedRackTransfer: 90,
 
     aliquot_uL: 50,
     reagent_uL: 200,
@@ -753,7 +755,7 @@ let layout = { modules: [] };
 const ioMap = [
   { id: "io_drop_sensor", label: "Sensor gotas", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_12", update_hz: 50, latency_ms: 10, criticality: "HIGH", notes: "Cuenta gotas en colector" },
   { id: "io_valve_servo", label: "Servo válvula", kind: "ACTUATOR", signal: "PWM", endpoint: "MCU:PWM_2", update_hz: 30, latency_ms: 25, criticality: "MED", notes: "Selector de columna" },
-  { id: "io_collector_xy", label: "Motores XY colector", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_COL", update_hz: 100, latency_ms: 12, criticality: "HIGH", notes: "Interpolación lineal" },
+  { id: "io_collector_y", label: "Motor Y colector", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:Y_COL", update_hz: 100, latency_ms: 12, criticality: "HIGH", notes: "Cabezal con riel transversal" },
   { id: "io_pipA_xy", label: "Motores XY pipeta A", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPA", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Alícuotas" },
   { id: "io_pipR_xy", label: "Motores XY pipeta R", kind: "ACTUATOR", signal: "ETH", endpoint: "DRIVE:XY_PIPR", update_hz: 120, latency_ms: 10, criticality: "HIGH", notes: "Reactivo" },
   { id: "io_tip_sensor_A", label: "Sensor tip A", kind: "SENSOR", signal: "DI", endpoint: "PLC:DI_05", update_hz: 20, latency_ms: 15, criticality: "MED", notes: "Detección tip A" },
@@ -826,23 +828,23 @@ const ioMap = [
 
   // ===== M1 anchors =====
   world.columnOut =     { x: x1 + 70,          y: y0 + 70 };
-  world.collectorHome = { x: x1 + 100,         y: y0 + 130 };
-  world.rackCollectOrigin = { x: x1 + W*0.62,  y: y0 + D*0.50 };
+  world.collectorHome = { x: x1 + W*0.50,      y: y0 + 110 };
+  world.rackCollectOrigin = { x: x1 + W*0.50,  y: y0 + D*0.38 };
   world.washWaste =     { x: x1 + 90,          y: y0 + D - 80 };
   world.rackMag =       { x: x1 + W - 85,      y: y0 + D - 80 };
   world.rackMagZ =      { x: x1 + W - 170,     y: y0 + D - 170, w: 130, d: 130 };
 
   // ===== M2 anchors =====
-  world.pipAHome =          { x: x2 + W*0.24,  y: y0 + 90 };
+  world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
   world.plateSt1 =          { x: x2 + W*0.72,  y: y0 + D*0.22 };
-  world.rackPipetteOrigin = { x: x2 + W*0.28,  y: y0 + D*0.56 };
-  world.plateBufferPos =    { x: x2 + W*0.74,  y: y0 + D*0.52 };
+  world.rackPipetteOrigin = { x: x2 + W*0.18,  y: y0 + D*0.52 };
+  world.plateBufferPos =    { x: x2 + W*0.72,  y: y0 + D*0.40 };
   world.plateMag =          { x: x2 + W*0.18,  y: y0 + D - 80 };
   world.plateMagZ =         { x: x2 + 30,      y: y0 + D - 170, w: 130, d: 130 };
 
   // tips SMALL (hasta 6 cajas) dentro de M2, bloque inferior derecho
-  const smallCols = 3;
-  const smallRows = 2;
+  const smallCols = 2;
+  const smallRows = 3;
   const smallBlockW = smallCols * plateW + (smallCols - 1) * tipGap;
   const smallBlockH = smallRows * plateD + (smallRows - 1) * tipGap;
   const smallStartX = x2 + W - smallBlockW - 30;
@@ -858,19 +860,19 @@ const ioMap = [
   }
 
   // ===== M3 anchors =====
-  world.pipRHome =          { x: x3 + W*0.26,  y: y0 + 90 };
+  world.pipRHome =          { x: x3 + W*0.22,  y: y0 + 90 };
   world.plateSt2 =          { x: x3 + W*0.72,  y: y0 + D*0.22 };
-  world.reservoir =         { x: x3 + W*0.26,  y: y0 + D*0.40 };
-  world.waste =             { x: x3 + W*0.26,  y: y0 + D*0.62 };
-  world.plateStackPos =     { x: x3 + W*0.82,  y: y0 + D*0.58 };
+  world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.30 };
+  world.waste =             { x: x3 + W*0.22,  y: y0 + D*0.50 };
+  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D*0.42 };
   world.plateStackZ =       { x: x3 + W - 170, y: y0 + D - 170, w: 130, d: 130 };
 
   // tips LARGE dentro de M3, bloque inferior izquierdo
-  const largeCols = 2;
-  const largeRows = 2;
+  const largeCols = 1;
+  const largeRows = 4;
   const largeBlockW = largeCols * plateW + (largeCols - 1) * tipGap;
   const largeBlockH = largeRows * plateD + (largeRows - 1) * tipGap;
-  const largeStartX = x3 + 30;
+  const largeStartX = x3 + W - largeBlockW - 30;
   const largeStartY = y0 + D - largeBlockH - 30;
   world.largeBoxTLs = [];
   for (let r=0;r<largeRows;r++){
@@ -932,6 +934,17 @@ layoutWorld();
     const {i,j} = tubeIJ(k);
     return { x: rack.x + j*world.tubePitch, y: rack.y + i*world.tubePitch };
   }
+  function collectorTargetsForTube(rack, k){
+    const {i,j} = tubeIJ(k);
+    const headX = world.collectorHome.x;
+    const rackY = world.rackCollectOrigin.y;
+    return {
+      rackX: headX - j*world.tubePitch,
+      rackY,
+      headX,
+      headY: rackY + i*world.tubePitch
+    };
+  }
   function wellPosMM(base, w){
     const r = Math.floor(w/12), c = w%12;
     return { x: base.x + c*world.wellPitch, y: base.y + r*world.wellPitch };
@@ -944,6 +957,8 @@ layoutWorld();
       id: ids.rack++,
       x: world.rackCollectOrigin.x,
       y: world.rackCollectOrigin.y,
+      tx: world.rackCollectOrigin.x,
+      ty: world.rackCollectOrigin.y,
       tubes_uL: new Array(cfg.N*cfg.M).fill(0),
       tubeIndex: 0,
       fracIndex: 0,
@@ -1090,6 +1105,9 @@ layoutWorld();
     if (sim.mode !== "RUNNING") return;
 
     moveObj(sim.collectorHead, dt, cfg.speedCollector);
+    if (C.rack && C.state !== "MOVE_RACK_TO_QUEUE"){
+      moveObj(C.rack, dt, cfg.speedRackBelt);
+    }
 
     switch(C.state){
       case "WAIT_START": C.state = "LOAD_RACK"; break;
@@ -1109,15 +1127,21 @@ layoutWorld();
       case "SELECT_COLUMN": {
         updateValve(C.currentColumnIdx + 1);
         C.rack.tubeIndex = 0; C.rack.fracIndex = 1; C.rack.drops = 0; C.rack.frac_uL = 0; C.rack.dropAcc = 0;
-        const tp = tubePosMM(C.rack, C.rack.tubeIndex);
-        sim.collectorHead.tx = tp.x; sim.collectorHead.ty = tp.y;
+        const targets = collectorTargetsForTube(C.rack, C.rack.tubeIndex);
+        C.rack.tx = targets.rackX; C.rack.ty = targets.rackY;
+        sim.collectorHead.tx = targets.headX; sim.collectorHead.ty = targets.headY;
         C.state = "MOVE_TO_TUBE";
         log(`Válvula → columna ${sim.valveChannel}/${cfg.numColumns} (servo ${sim.valveServoDeg}°).`, "status-ok");
         break;
       }
 
       case "MOVE_TO_TUBE": {
-        const arrived = (Math.hypot(sim.collectorHead.tx-sim.collectorHead.x, sim.collectorHead.ty-sim.collectorHead.y) < 0.06);
+        const targets = collectorTargetsForTube(C.rack, C.rack.tubeIndex);
+        C.rack.tx = targets.rackX; C.rack.ty = targets.rackY;
+        sim.collectorHead.tx = targets.headX; sim.collectorHead.ty = targets.headY;
+        const arrivedHead = (Math.abs(sim.collectorHead.ty - sim.collectorHead.y) < 0.06);
+        const arrivedRack = (Math.abs(C.rack.tx - C.rack.x) < 0.06);
+        const arrived = arrivedHead && arrivedRack;
         if (arrived) { C.rack.drops=0; C.rack.frac_uL=0; C.rack.dropAcc=0; C.state="COLLECTING"; }
         break;
       }
@@ -1149,8 +1173,9 @@ layoutWorld();
             sim.collectorHead.tx = world.collectorHome.x; sim.collectorHead.ty = world.collectorHome.y;
             log(`Colector: rack ID=${C.rack.id} completo → transportando a estación pipeteo.`, "status-ok");
           } else {
-            const tp = tubePosMM(C.rack, C.rack.tubeIndex);
-            sim.collectorHead.tx = tp.x; sim.collectorHead.ty = tp.y;
+            const targets = collectorTargetsForTube(C.rack, C.rack.tubeIndex);
+            C.rack.tx = targets.rackX; C.rack.ty = targets.rackY;
+            sim.collectorHead.tx = targets.headX; sim.collectorHead.ty = targets.headY;
             C.state = "MOVE_TO_TUBE";
           }
         }
@@ -1159,10 +1184,11 @@ layoutWorld();
 
       case "MOVE_RACK_TO_QUEUE": {
         const r = C.rack;
-        r.moveT = clamp(r.moveT + dt*0.45, 0, 1);
-        r.x = lerp(world.rackCollectOrigin.x, world.rackPipetteOrigin.x, r.moveT);
-        r.y = lerp(world.rackCollectOrigin.y, world.rackPipetteOrigin.y, r.moveT);
-        if (r.moveT >= 1){
+        r.tx = world.rackPipetteOrigin.x;
+        r.ty = world.rackPipetteOrigin.y;
+        moveObj(r, dt, cfg.speedRackTransfer);
+        const arrived = (Math.hypot(r.tx - r.x, r.ty - r.y) < 0.06);
+        if (arrived){
           r.moving=false;
           sim.rackQueue.push(r);
           log(`Rack ID=${r.id} en cola de alícuotas. (cola racks=${sim.rackQueue.length})`, "status-ok");
@@ -1523,8 +1549,7 @@ layoutWorld();
     sim.valveActiveT = Math.max(0, sim.valveActiveT - dt);
 
     const ch = sim.collectorHead;
-    const dxC = Math.abs(ch.tx - ch.x), dyC = Math.abs(ch.ty - ch.y);
-    add("col_x", "Motor X Colector", {x: ch.x+16, y: ch.y-20}, (sim.mode==="RUNNING" && dxC>0.10), "motor");
+    const dyC = Math.abs(ch.ty - ch.y);
     add("col_y", "Motor Y Colector", {x: ch.x+16, y: ch.y-8},  (sim.mode==="RUNNING" && dyC>0.10), "motor");
 
     add("valve", "Servo válvula", {x: world.columnOut.x+26, y: world.columnOut.y-6}, sim.valveActiveT>0, "servo");
@@ -1533,11 +1558,12 @@ layoutWorld();
     const washArr = (Math.hypot(world.washWaste.x - ch.x, world.washWaste.y - ch.y) < 0.20);
     add("wash_pump", "Bomba lavado", {x: world.washWaste.x+26, y: world.washWaste.y-10}, (sim.collector.state==="WASH" && washArr), "actuator");
 
-    if (sim.collector.state==="MOVE_RACK_TO_QUEUE" && sim.collector.rack){
-      const r = sim.collector.rack;
-      add("rack_conv", "Motor cinta rack", {x: r.x+10, y: r.y-34}, true, "motor");
+    const rack = sim.collector.rack;
+    if (rack){
+      const movingRack = Math.abs(rack.tx - rack.x) > 0.06 || Math.abs(rack.ty - rack.y) > 0.06;
+      add("rack_conv", "Motor cinta rack longitudinal", {x: rack.x+10, y: rack.y-34}, movingRack, "motor");
     } else {
-      add("rack_conv", "Motor cinta rack", {x: world.rackPipetteOrigin.x+10, y: world.rackPipetteOrigin.y-34}, false, "motor");
+      add("rack_conv", "Motor cinta rack longitudinal", {x: world.rackCollectOrigin.x+10, y: world.rackCollectOrigin.y-34}, false, "motor");
     }
 
     add("plate_conv", "Motor cinta placas", {x: 650, y: (world.conveyorMain.y || 0)+5}, !!sim.movingPlate, "motor");
@@ -1605,6 +1631,16 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
     ctx.moveTo(x,y-size); ctx.lineTo(x,y+size);
     ctx.stroke(); ctx.restore();
   }
+  function drawTipMarker(x,y,color){
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 6);
+    ctx.lineTo(x, y + 16);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // --- NEW --- Engineering overlay helpers
   const engState = {
@@ -1635,17 +1671,18 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
   }
 
   function drawEngineeringAxes(){
-    const origin = mm2px({x:0, y:0});
+    const baseY = Math.min(BASE_CANVAS_H - 18, world.offY + world.totalH_mm*world.mmToPx + 24);
+    const origin = { x: world.offX + 12, y: baseY - 60 };
     ctx.save();
     ctx.strokeStyle = "rgba(232,240,247,0.6)";
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(origin.x + 10, origin.y + 10); ctx.lineTo(origin.x + 70, origin.y + 10); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(origin.x + 10, origin.y + 10); ctx.lineTo(origin.x + 10, origin.y + 70); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x + 70, origin.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x, origin.y + 60); ctx.stroke();
     ctx.fillStyle = "rgba(232,240,247,0.7)";
     ctx.font = "11px system-ui";
-    ctx.fillText("X→", origin.x + 74, origin.y + 14);
-    ctx.fillText("Y↓", origin.x, origin.y + 74);
-    ctx.fillText("(0,0)", origin.x + 16, origin.y + 4);
+    ctx.fillText("X→", origin.x + 74, origin.y + 4);
+    ctx.fillText("Y↓", origin.x - 2, origin.y + 70);
+    ctx.fillText("XY", origin.x + 4, origin.y - 4);
     ctx.restore();
   }
 
@@ -1985,10 +2022,10 @@ add("tips_large_swap", "Cambio caja tips LARGE", {x: lb.x + 40, y: lb.y + 40}, s
 
     if (viewEngineeringEl.checked){
       drawEngineeringGrid();
-      drawEngineeringAxes();
       drawLayoutBoxes();
       drawEngineeringXZ();
     }
+    drawEngineeringAxes();
 
     // módulos (rectángulos) + cinta lineal (a escala)
     for (const m of world.modules){
@@ -2107,10 +2144,12 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
     const ha = mm2px(sim.pipA);
     crosshair(ha.x,ha.y,9,"#fbbf24"); circle(ha.x,ha.y,6,"rgba(251,191,36,0.10)","#fbbf24");
+    if (sim.pipA.hasTip || sim.pipA.sub === "GET_TIP") drawTipMarker(ha.x, ha.y, "#fbbf24");
     drawLabel(`Pip A (${sim.pipA.tipType})`, ha.x+12, ha.y-12);
 
     const hr = mm2px(sim.pipR);
     crosshair(hr.x,hr.y,9,"#4ade80"); circle(hr.x,hr.y,6,"rgba(74,222,128,0.10)","#4ade80");
+    if (sim.pipR.hasTip || sim.pipR.sub === "GET_TIP") drawTipMarker(hr.x, hr.y, "#4ade80");
     drawLabel(`Pip R (${sim.pipR.tipType})`, hr.x+12, hr.y-12);
 
     // drops visual
