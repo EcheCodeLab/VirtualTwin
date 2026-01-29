@@ -749,6 +749,7 @@ const world = {
   rackQueueSlots: [],
   rackEntryExternal: { x: 0, y: 0 },
   rackExitM2External: { x: 0, y: 0 },
+  plateEntryM2External: { x: 0, y: 0 },
   plateEntryM3External: { x: 0, y: 0 },
 
   controllerBox: { x: 0, y: 0 }
@@ -948,6 +949,7 @@ const ioMap = [
   world.rackInM2 =          { x: x2 + 20,      y: world.rackPipetteOrigin.y };
   world.rackOutM2 =         { x: x2 + 40,      y: y0 + D - 30 };
   world.plateInM2 =         { x: x2 + W*0.60,  y: y0 + D - 30 };
+  world.plateEntryM2External = { x: world.plateInM2.x, y: y0 + D + LANE + 60 };
   world.rackExitM2External = { x: world.rackPipetteOrigin.x, y: y0 + D + LANE + 60 };
 
   const rackQueueSpacing = 160;
@@ -1139,6 +1141,7 @@ layoutWorld();
 
     plateSt1: null,
     plateSt2: null,
+    plateSt1Incoming: false,
 
     movingPlate: null,
 
@@ -1395,12 +1398,28 @@ layoutWorld();
   // ---------- Aliquot SM ----------
   function ensurePlateSt1(){
     if (sim.plateSt1) return true;
+    if (sim.plateSt1Incoming || sim.movingPlate) return false;
     if (sim.plateSupply <= 0) { setAlarm("PLATE_EMPTY", "No hay microplacas en magazine."); return false; }
     sim.plateSupply--;
     sim.magPlateLiftT = 0.8;
-    sim.plateSt1 = newPlate();
-    log(`Placa ID=${sim.plateSt1.id} cargada en Estación 1.`, "status-ok");
-    return true;
+    const plate = newPlate();
+    const ok = requestPlateMove(
+      plate,
+      {x: world.plateEntryM2External.x, y: world.plateEntryM2External.y},
+      {x: world.plateSt1.x, y: world.plateSt1.y},
+      1.0,
+      () => {
+        sim.plateSt1 = plate;
+        sim.plateSt1Incoming = false;
+        log(`Placa ID=${plate.id} cargada en Estación 1.`, "status-ok");
+      }
+    );
+    if (!ok){
+      sim.plateSupply++;
+      return false;
+    }
+    sim.plateSt1Incoming = true;
+    return false;
   }
 
   function stepAliquot(dt){
@@ -1425,9 +1444,11 @@ layoutWorld();
       return;
     }
 
-    A.rack.tx = world.rackPipetteOrigin.x;
-    A.rack.ty = world.rackPipetteOrigin.y;
-    moveObj(A.rack, dt, cfg.speedRackTransfer);
+    if (A.sub !== "EJECT_RACK"){
+      A.rack.tx = world.rackPipetteOrigin.x;
+      A.rack.ty = world.rackPipetteOrigin.y;
+      moveObj(A.rack, dt, cfg.speedRackTransfer);
+    }
 
     if (!ensurePlateSt1()) return;
 
@@ -1738,7 +1759,8 @@ layoutWorld();
     rack_in_conv: "CINT2",
     rack_out_conv: "CINT3",
     plate_conv: "CINT4",
-    plate_in_m3: "CINT5",
+    plate_in_m2: "CINT5",
+    plate_in_m3: "CINT6",
     pipA_x: "MTR02",
     pipA_y: "MTR03",
     pipA_tip: "ACT01",
@@ -1798,6 +1820,7 @@ layoutWorld();
     add("rack_out_conv", "Motor cinta salida racks M2", {x: world.rackOutM2.x, y: world.rackExitM2External.y - 18}, !!movingOut, "motor");
 
     add("plate_conv", "Motor cinta placas", {x: 650, y: (world.conveyorMain.y || 0)+5}, !!sim.movingPlate, "motor");
+    add("plate_in_m2", "Motor cinta placas entrada M2", {x: world.plateEntryM2External.x + 20, y: world.plateEntryM2External.y - 18}, !!sim.plateSt1Incoming, "motor");
     add("plate_in_m3", "Motor cinta placas entrada M3", {x: world.plateEntryM3External.x + 20, y: world.plateEntryM3External.y - 18}, !!sim.movingPlate, "motor");
 
     const A = sim.pipA;
@@ -1831,7 +1854,7 @@ layoutWorld();
 // actuadores de magazines / stacks (visual, para contemplar apilado vertical)
 const pm = world.plateMagZ, rm = world.rackMagZ, ps = world.plateStackZ;
 const rackZExt = { x: world.rackEntryExternal.x - 70, y: world.rackEntryExternal.y - 60, w: rm.w, d: rm.d };
-const plateZExt = { x: world.plateEntryM3External.x + 40, y: world.plateEntryM3External.y - 60, w: pm.w, d: pm.d };
+const plateZExt = { x: world.plateEntryM2External.x + 40, y: world.plateEntryM2External.y - 60, w: pm.w, d: pm.d };
 add("plate_mag_lift", "Actuador Z magazine placas", {x: plateZExt.x + plateZExt.w/2, y: plateZExt.y + plateZExt.d/2}, sim.magPlateLiftT > 0, "motor");
 add("rack_mag_lift",  "Actuador Z magazine racks",  {x: rackZExt.x + rackZExt.w/2, y: rackZExt.y + rackZExt.d/2}, sim.magRackLiftT > 0, "motor");
 add("plate_stack_lift","Actuador Z stack salida",   {x: ps.x + ps.w/2, y: ps.y + ps.d/2}, sim.stackPlateLiftT > 0, "motor");
@@ -2395,12 +2418,12 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
 
       // si sólo querés LEDs (sin cajas), lo hacemos liviano
       if (showLeds && !showLabels){
-        circle(p.x, p.y, 3.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
+        circle(p.x, p.y, 2.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
         continue;
       }
 
       if (showLeds){
-        circle(p.x-34, p.y, 3.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
+        circle(p.x-32, p.y, 2.2, c.active ? onCol : offCol, "rgba(34,48,65,0.8)");
       }
 
       if (showLabels){
@@ -2408,7 +2431,7 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
         ctx.fillStyle = "rgba(232,240,247,0.62)";
         ctx.font = "4.8px system-ui";
         const short = c.short || c.label;
-        ctx.fillText(short, p.x-26, p.y+3);
+        ctx.fillText(short, p.x-24, p.y+3);
         ctx.restore();
       }
     }
@@ -2535,7 +2558,11 @@ if (world.modules.length >= 3){
 
     const plateInM2 = mm2px(world.plateInM2);
     rect(plateInM2.x-14, plateInM2.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
-    drawLabel("Placas in/out M2", plateInM2.x-50, plateInM2.y+22);
+    drawLabel("Placa entrada M2", plateInM2.x-46, plateInM2.y+22);
+
+    const plateInM2Ext = mm2px(world.plateEntryM2External);
+    rect(plateInM2.x - 8, plateInM2Ext.y - 10, 16, (plateInM2.y - plateInM2Ext.y) + 10, "rgba(56,189,248,0.25)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Cinta entrada placas M2", plateInM2.x-62, plateInM2Ext.y - 6);
 
     const plateInM3 = mm2px(world.plateInM3);
     rect(plateInM3.x-10, plateInM3.y-16, 20, 32, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
@@ -2581,12 +2608,12 @@ if (world.modules.length >= 3){
 const pmz = world.plateMagZ, rmz = world.rackMagZ, psz = world.plateStackZ;
 const pszTL = mm2px({x: psz.x, y: psz.y});
 const rackZExt = mm2px({x: world.rackEntryExternal.x - 70, y: world.rackEntryExternal.y - 60});
-const plateZExt = mm2px({x: world.plateEntryM3External.x + 40, y: world.plateEntryM3External.y - 60});
+const plateZExt = mm2px({x: world.plateEntryM2External.x + 40, y: world.plateEntryM2External.y - 60});
 rect(rackZExt.x, rackZExt.y, rmz.w*world.mmToPx, rmz.d*world.mmToPx, "rgba(74,222,128,0.08)", "rgba(74,222,128,0.25)", 1);
 rect(plateZExt.x, plateZExt.y, pmz.w*world.mmToPx, pmz.d*world.mmToPx, "rgba(59,130,246,0.08)", "rgba(59,130,246,0.25)", 1);
 rect(pszTL.x, pszTL.y, psz.w*world.mmToPx, psz.d*world.mmToPx, "rgba(168,85,247,0.08)", "rgba(168,85,247,0.25)", 1);
 drawLabel("Z-lift racks ext", rackZExt.x, rackZExt.y-10);
-drawLabel("Z-lift placas ext", plateZExt.x, plateZExt.y-10);
+drawLabel("Z-lift placas ext M2", plateZExt.x, plateZExt.y-10);
 drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
 
@@ -2872,6 +2899,7 @@ drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
 
     sim.plateSt1 = null;
     sim.plateSt2 = null;
+    sim.plateSt1Incoming = false;
     sim.movingPlate = null;
 
     ids = { rack: 1, plate: 1 };
