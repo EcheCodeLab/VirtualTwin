@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Virtual Twin – Pipeline + Tip Boxes + Electrónica (Demo)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1>Virtual Twin – Pipeline real + múltiples cajas de tips + overlay de electrónica (Demo)</h1>
+  <span class="pill">1 archivo HTML · sin librerías</span>
+</header>
+
+<div id="miniBar">
+  <button id="miniStart" class="primary">Iniciar</button>
+  <button id="miniPause">Pausar/Reanudar</button>
+  <button id="miniReset" class="danger">Reset</button>
+    <button id="miniPopConfig">Parámetros</button>
+  <button id="miniPopHW">Electrónica</button>
+  <button id="miniPopLog">Consola</button>
+  <button id="miniPopLayout">Layout/I/O</button>
+<button id="miniShowPanel">Mostrar panel</button>
+</div>
+
+<div class="wrap">
+  <section class="card">
+    <h2>Vista del sistema (simulación)</h2>
+    <div class="canvas-wrap">
+      <div class="dashboard" id="dashboard">
+        <div class="row">
+          <div class="title">Executive dashboard</div>
+          <div class="small" id="dashEta">ETA: --</div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="dash-card">
+            <div class="k">Throughput</div>
+            <div class="v" id="dashThroughput">-- fracc/h</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Consumo</div>
+            <div class="v" id="dashConsumables">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Waste</div>
+            <div class="v" id="dashWaste">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Tips</div>
+            <div class="v" id="dashTips">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Placas / racks</div>
+            <div class="v" id="dashPlates">--</div>
+          </div>
+          <div class="dash-card">
+            <div class="k">Riesgo</div>
+            <div class="v" id="dashRisk">--</div>
+          </div>
+        </div>
+      </div>
+      <canvas id="sim" width="1300" height="680"></canvas>
+      <div class="eng-tooltip" id="engTooltip"></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2>Control + variables</h2>
+    <div class="content">
+      <div class="row" style="margin-bottom:10px">
+        <button id="btnStart" class="primary">Iniciar</button>
+        <button id="btnPause">Pausar/Reanudar</button>
+        <button id="btnReset" class="danger">Reset</button>
+        <button id="btnApply">Aplicar config</button>
+        <button id="btnPopConfig">Ventana separada: parámetros</button>
+        <button id="btnPopHW">Ventana separada: electrónica</button>
+        <button id="btnPopLog">Ventana separada: consola</button>
+        <button id="btnPopLayout">Ventana separada: Layout/I/O</button>
+        <button id="btnTogglePanel">Ocultar panel</button>
+      </div>
+
+      <div class="item" style="margin-bottom:10px; border:1px solid #1f2a37; border-radius: 12px; padding:10px; background:#0b1017;">
+        <div class="k">Velocidad de tiempo (Time-warp)</div>
+        <div class="inline">
+          <input id="timeScale" type="range" min="0.25" max="25" step="0.25" value="1" />
+          <div class="v" id="vTimeScale" style="min-width:72px;text-align:right;">1.00×</div>
+        </div>
+        <div class="small">Afecta dt de simulación (motores, gotas, aspirar/dispensar, transporte).</div>
+      </div>
+
+      <!-- NUEVO: control fino de limpieza visual del overlay -->
+      <div class="toggles">
+        <div class="t"><input id="showElec" type="checkbox" checked><span>Overlay electrónica</span></div>
+        <div class="t"><input id="showHwLeds" type="checkbox" checked><span>Luces (LEDs)</span></div>
+        <div class="t"><input id="showHwLabels" type="checkbox" checked><span>Nombres</span></div>
+        <div class="t"><input id="viewEngineering" type="checkbox"><span>Engineering mode</span></div>
+      </div>
+
+      <div class="grid" style="margin-bottom:12px">
+        <div>
+          <label>Columnas a analizar</label>
+          <input id="numCols" type="number" min="1" max="12" value="4" />
+        </div>
+        <div>
+          <label>Lavado entre columnas (µL)</label>
+          <input id="washUL" type="number" min="0" value="1500" />
+        </div>
+
+        <div>
+          <label>Grilla tubos N (filas)</label>
+          <input id="gridN" type="number" min="1" max="20" value="6" />
+        </div>
+        <div>
+          <label>Grilla tubos M (columnas)</label>
+          <input id="gridM" type="number" min="1" max="20" value="8" />
+        </div>
+
+        <div>
+          <label>Volumen fracción (µL)</label>
+          <input id="targetUL" type="number" min="1" value="500" />
+        </div>
+        <div>
+          <label>Volumen gota (µL)</label>
+          <input id="dropUL" type="number" min="0.1" step="0.1" value="25" />
+        </div>
+
+        <div>
+          <label>Tasa gotas (gotas/s)</label>
+          <input id="dropRate" type="number" min="0" step="0.1" value="2.5" />
+        </div>
+        <div>
+          <label>Vel. XY colector (mm/s)</label>
+          <input id="speedXY" type="number" min="1" value="120" />
+        </div>
+
+        <div>
+          <label>Vel. XY pipeta alícuotas (mm/s)</label>
+          <input id="speedPipA" type="number" min="1" value="175" />
+        </div>
+        <div>
+          <label>Vel. XY pipeta reactivo (mm/s)</label>
+          <input id="speedPipR" type="number" min="1" value="175" />
+        </div>
+
+        <div>
+          <label>Capacidad pipeta reactivo (µL)</label>
+          <input id="pipCapR" type="number" min="50" value="1000" />
+        </div>
+        <div>
+          <label>Alícuota a placa (µL)</label>
+          <input id="aliquotUL" type="number" min="1" value="50" />
+        </div>
+
+        <div>
+          <label>Reactivo a placa (µL)</label>
+          <input id="reagentUL" type="number" min="1" value="200" />
+        </div>
+        <div>
+          <label>Buffer placas (capacidad)</label>
+          <input id="plateBufferCap" type="number" min="0" value="6" />
+        </div>
+
+        <div>
+          <label>Placas en magazine</label>
+          <input id="plateSupply" type="number" min="0" value="12" />
+        </div>
+        <div>
+          <label>Capacidad stack final placas</label>
+          <input id="plateStackCap" type="number" min="1" value="20" />
+        </div>
+
+        <div>
+          <label>Racks Falcon en magazine</label>
+          <input id="rackSupply" type="number" min="0" value="10" />
+        </div>
+        <div>
+          <label>Reservorio reactivo inicial (µL)</label>
+          <input id="resStart" type="number" min="0" value="80000" />
+        </div>
+
+        <div>
+          <label>Cajas tips SMALL (96 tips/caja)</label>
+          <input id="smallBoxes" type="number" min="0" value="3" />
+        </div>
+        <div>
+          <label>Cajas tips LARGE (24 tips/caja)</label>
+          <input id="largeBoxes" type="number" min="0" value="2" />
+        </div>
+
+        <div>
+          <label>Capacidad descarte tips (unid)</label>
+          <input id="wasteTipCap" type="number" min="1" value="400" />
+        </div>
+        <div>
+          <label>Capacidad descarte líquido (µL)</label>
+          <input id="wasteLiqCap" type="number" min="1" value="350000" />
+        </div>
+      </div>
+
+      <div class="kv" style="margin-bottom:10px">
+        <div class="item">
+          <div class="k">Modo</div>
+          <div class="v" id="vState">IDLE</div>
+        </div>
+        <div class="item">
+          <div class="k">Válvula</div>
+          <div class="v" id="vValve">-</div>
+        </div>
+
+        <div class="item">
+          <div class="k">Colector</div>
+          <div class="v" id="vCollector">-</div>
+        </div>
+        <div class="item">
+          <div class="k">Pipeta alícuotas</div>
+          <div class="v" id="vAliquot">-</div>
+        </div>
+
+        <div class="item">
+          <div class="k">Pipeta reactivo</div>
+          <div class="v" id="vReagent">-</div>
+        </div>
+        <div class="item">
+          <div class="k">Colas racks / buffer placas</div>
+          <div class="v" id="vQueues">0 / 0</div>
+        </div>
+
+        <div class="item">
+          <div class="k">Placas ST1 / ST2 / stack final</div>
+          <div class="v" id="vPlates">-</div>
+        </div>
+        <div class="item">
+          <div class="k">Magazines placas / racks</div>
+          <div class="v" id="vMag">-</div>
+        </div>
+
+        <div class="item">
+          <div class="k">Cajas tips (SMALL/LARGE) activas</div>
+          <div class="v" id="vBoxes">-</div>
+        </div>
+        <div class="item">
+          <div class="k">Tips restantes (box actual)</div>
+          <div class="v" id="vTips">-</div>
+        </div>
+
+        <div class="item">
+          <div class="k">Reservorio / descarte</div>
+          <div class="v" id="vWaste">-</div>
+        </div>
+        <div class="item">
+          <div class="k">Alarmas</div>
+          <div class="v" id="vAlarm"><span class="status-ok">● OK</span></div>
+        </div>
+      </div>
+
+      <div style="margin: 10px 0 8px; font-size:12px; color: var(--muted);">Electrónica – estado instantáneo</div>
+      <div class="hwlist" id="hwList"></div>
+
+      <div class="log" id="log" style="margin-top:10px;"></div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnExportRunCsv" disabled>Export run_report.csv</button>
+        <button id="btnExportRunJson" disabled>Export run_report.json</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  Tip: para “emprolijar”, apagá <b>Nombres</b> y dejá sólo <b>Luces</b>, o apagá el overlay completo.
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
