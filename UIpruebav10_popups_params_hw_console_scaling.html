@@ -751,6 +751,7 @@ const world = {
   rackExitM2External: { x: 0, y: 0 },
   plateEntryM2External: { x: 0, y: 0 },
   plateEntryM3External: { x: 0, y: 0 },
+  plateExitM3External: { x: 0, y: 0 },
 
   controllerBox: { x: 0, y: 0 }
 };
@@ -941,7 +942,7 @@ const ioMap = [
 
   // ===== M2 anchors =====
   world.pipAHome =          { x: x2 + W*0.18,  y: y0 + 90 };
-  world.plateSt1 =          { x: x2 + W*0.72,  y: y0 + D*0.22 };
+  world.plateSt1 =          { x: x2 + W*0.72,  y: y0 + D*0.72 };
   world.rackPipetteOrigin = { x: x2 + W*0.18,  y: world.rackCollectOrigin.y };
   world.plateBufferPos =    { x: x2 + W*0.72,  y: y0 + D*0.40 };
   world.plateMag =          { x: x2 + W*0.18,  y: y0 + D - 80 };
@@ -970,7 +971,7 @@ const ioMap = [
   const smallBlockW = smallCols * plateW + (smallCols - 1) * tipGap;
   const smallBlockH = smallRows * plateD + (smallRows - 1) * tipGap;
   const smallStartX = x2 + W - smallBlockW - 30;
-  const smallStartY = y0 + D - smallBlockH - 30;
+  const smallStartY = y0 + 30;
   world.smallBoxTLs = [];
   for (let r=0;r<smallRows;r++){
     for (let c=0;c<smallCols;c++){
@@ -987,11 +988,12 @@ const ioMap = [
   world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.24 };
   world.wasteA =            { x: x2 + W*0.70,  y: y0 + D*0.32 };
   world.wasteR =            { x: x3 + W*0.22,  y: y0 + D*0.50 };
-  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D*0.72 };
-  world.plateStackZ =       { x: x3 + W - 170, y: y0 + D - 170, w: 130, d: 130 };
+  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D + LANE + 80 };
+  world.plateStackZ =       { x: x3 + W - 170, y: y0 + D + LANE + 40, w: 130, d: 130 };
   world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.35 };
   world.plateOutM3 =        { x: x3 + W*0.55,  y: y0 + D - 30 };
   world.plateEntryM3External = { x: world.plateInM3.x, y: y0 + D + LANE + 60 };
+  world.plateExitM3External = { x: world.plateStackPos.x, y: world.plateStackPos.y };
 
   // tips LARGE dentro de M3, bloque inferior izquierdo (más compacto)
   const largeCols = 1;
@@ -1032,15 +1034,29 @@ layoutWorld();
     return world.largeBoxTLs[i];
   }
 
+  function tipBoxLayout(tl, pitch){
+    const boxW = Math.max(60, cfg.plateW_mm || 127.76);
+    const boxD = Math.max(40, cfg.plateD_mm || 85.48);
+    const gridW = 11 * pitch;
+    const gridH = 7 * pitch;
+    const marginX = Math.max(4, (boxW - gridW) / 2);
+    const marginY = Math.max(4, (boxD - gridH) / 2);
+    return { boxW, boxD, pitch, base: { x: tl.x + marginX, y: tl.y + marginY } };
+  }
+
   function tipIndexToPosSmall(idx){
     const tl = currentSmallBoxTL();
+    const pitch = Math.max(6, world.tipPitchSmall || 9);
+    const layout = tipBoxLayout(tl, pitch);
     const r = Math.floor(idx/12), c = idx%12;
-    return { x: tl.x + c*world.tipPitchSmall, y: tl.y + r*world.tipPitchSmall };
+    return { x: layout.base.x + c*layout.pitch, y: layout.base.y + r*layout.pitch };
   }
   function tipIndexToPosLarge(idx){
     const tl = currentLargeBoxTL();
+    const pitch = Math.max(6, world.tipPitchLarge || 9);
+    const layout = tipBoxLayout(tl, pitch);
     const r = Math.floor(idx/12), c = idx%12;
-    return { x: tl.x + c*world.tipPitchLarge, y: tl.y + r*world.tipPitchLarge };
+    return { x: layout.base.x + c*layout.pitch, y: layout.base.y + r*layout.pitch };
   }
 
   // ---------- Movement ----------
@@ -1082,9 +1098,26 @@ layoutWorld();
       headY: rackY + i*world.tubePitch
     };
   }
+  function plateWellLayout(posMM){
+    const plateW = Math.max(60, cfg.plateW_mm || 127.76);
+    const plateD = Math.max(40, cfg.plateD_mm || 85.48);
+    const pitch = Math.max(6, world.wellPitch || 9);
+    const gridW = 11 * pitch;
+    const gridH = 7 * pitch;
+    const marginX = Math.max(4, (plateW - gridW) / 2);
+    const marginY = Math.max(4, (plateD - gridH) / 2);
+    return {
+      plateW,
+      plateD,
+      pitch,
+      base: { x: posMM.x - plateW/2 + marginX, y: posMM.y - plateD/2 + marginY }
+    };
+  }
+
   function wellPosMM(base, w){
+    const layout = plateWellLayout(base);
     const r = Math.floor(w/12), c = w%12;
-    return { x: base.x + c*world.wellPitch, y: base.y + r*world.wellPitch };
+    return { x: layout.base.x + c*layout.pitch, y: layout.base.y + r*layout.pitch };
   }
 
   // ---------- Entities ----------
@@ -1739,6 +1772,7 @@ layoutWorld();
       (sim.rackQueue.length === 0) &&
       (!sim.pipA.rack) &&
       (!sim.plateSt1) &&
+      (!sim.plateSt1Incoming) &&
       (sim.plateBuffer.length === 0) &&
       (!sim.plateSt2) &&
       (!sim.movingPlate);
@@ -2291,22 +2325,17 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
   }
 
   function drawPlateAt(posMM, plate){
-    const plateW = Math.max(60, cfg.plateW_mm || 127.76);
-    const plateD = Math.max(40, cfg.plateD_mm || 85.48);
-    const pitch  = Math.max(6,  world.wellPitch || 9);
-
-    // matriz 12x8 (distancia entre centros = pitch)
-    const gridW = 11 * pitch;
-    const gridH = 7  * pitch;
-    const marginX = Math.max(4, (plateW - gridW) / 2);
-    const marginY = Math.max(4, (plateD - gridH) / 2);
+    const layout = plateWellLayout(posMM);
+    const plateW = layout.plateW;
+    const plateD = layout.plateD;
+    const pitch = layout.pitch;
 
     const tl = mm2px({x: posMM.x - plateW/2, y: posMM.y - plateD/2});
     rect(tl.x, tl.y, plateW*world.mmToPx, plateD*world.mmToPx);
     drawLabel(`Placa ${plate.id}`, tl.x, tl.y-10);
 
-    const base = { x: posMM.x - plateW/2 + marginX, y: posMM.y - plateD/2 + marginY };
-    const rpx = Math.max(2.2, 4.5*world.mmToPx);
+    const base = layout.base;
+    const rpx = Math.max(1.6, Math.min((pitch * world.mmToPx) * 0.35, 4.2 * world.mmToPx));
 
     for (let i=0;i<96;i++){
       const r = Math.floor(i/12), c = i%12;
@@ -2339,24 +2368,21 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
 
   function drawTipBoxSmall(boxIdx, isActive){
     const tlmm = world.smallBoxTLs[Math.min(boxIdx, world.smallBoxTLs.length-1)];
-    const boxW = Math.max(60, cfg.plateW_mm || 127.76);
-    const boxD = Math.max(40, cfg.plateD_mm || 85.48);
     const pitch = Math.max(6, world.tipPitchSmall || 9);
-
-    const gridW = 11*pitch, gridH = 7*pitch;
-    const marginX = Math.max(4, (boxW-gridW)/2);
-    const marginY = Math.max(4, (boxD-gridH)/2);
+    const layout = tipBoxLayout(tlmm, pitch);
+    const boxW = layout.boxW;
+    const boxD = layout.boxD;
 
     const tl = mm2px({x: tlmm.x, y: tlmm.y});
     rect(tl.x, tl.y, boxW*world.mmToPx, boxD*world.mmToPx, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
     drawLabel(`SMALL box #${boxIdx+1}`, tl.x, tl.y-10);
 
     if (isActive){
-      const base = { x: tlmm.x + marginX, y: tlmm.y + marginY };
+      const base = layout.base;
       const rpx = Math.max(1.8, 1.9*world.mmToPx);
       for (let i=0;i<96;i++){
         const r = Math.floor(i/12), c = i%12;
-        const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
+        const p = mm2px({x: base.x + c*layout.pitch, y: base.y + r*layout.pitch});
         const used = sim.tipsSmallUsed[i];
         circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(232,240,247,0.10)");
       }
@@ -2371,24 +2397,21 @@ add("tips_large_swap", "Cambio caja tips AMARILLO", {x: lb.x + 40, y: lb.y + 40}
 
   function drawTipBoxLarge(boxIdx, isActive){
     const tlmm = world.largeBoxTLs[Math.min(boxIdx, world.largeBoxTLs.length-1)];
-    const boxW = Math.max(60, cfg.plateW_mm || 127.76);
-    const boxD = Math.max(40, cfg.plateD_mm || 85.48);
     const pitch = Math.max(6, world.tipPitchLarge || 9);
-
-    const gridW = 11*pitch, gridH = 7*pitch;
-    const marginX = Math.max(4, (boxW-gridW)/2);
-    const marginY = Math.max(4, (boxD-gridH)/2);
+    const layout = tipBoxLayout(tlmm, pitch);
+    const boxW = layout.boxW;
+    const boxD = layout.boxD;
 
     const tl = mm2px({x: tlmm.x, y: tlmm.y});
     rect(tl.x, tl.y, boxW*world.mmToPx, boxD*world.mmToPx, isActive ? "#4b6ea8" : "rgba(34,48,65,0.8)", null, isActive?3:2);
     drawLabel(`AMARILLO 300µL #${boxIdx+1}`, tl.x, tl.y-10);
 
     if (isActive){
-      const base = { x: tlmm.x + marginX, y: tlmm.y + marginY };
+      const base = layout.base;
       const rpx = Math.max(2.0, 2.4*world.mmToPx);
       for (let i=0;i<96;i++){
         const r = Math.floor(i/12), c = i%12;
-        const p = mm2px({x: base.x + c*pitch, y: base.y + r*pitch});
+        const p = mm2px({x: base.x + c*layout.pitch, y: base.y + r*layout.pitch});
         const used = sim.tipsLargeUsed[i];
         circle(p.x, p.y, rpx, used ? "rgba(148,163,184,0.06)" : "rgba(250,204,21,0.18)");
       }
@@ -2576,6 +2599,10 @@ if (world.modules.length >= 3){
     rect(plateOutM3.x-14, plateOutM3.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
     drawLabel("Placa salida M3", plateOutM3.x-46, plateOutM3.y+22);
 
+    const plateOutExt = mm2px(world.plateExitM3External);
+    rect(plateOutM3.x - 8, plateOutM3.y, 16, (plateOutExt.y - plateOutM3.y) + 10, "rgba(56,189,248,0.25)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Cinta salida placas M3", plateOutM3.x-62, plateOutExt.y - 6);
+
     // markers
     const res = mm2px(world.reservoir);
     circle(res.x,res.y,14,"rgba(148,163,184,0.10)");
@@ -2614,7 +2641,7 @@ rect(plateZExt.x, plateZExt.y, pmz.w*world.mmToPx, pmz.d*world.mmToPx, "rgba(59,
 rect(pszTL.x, pszTL.y, psz.w*world.mmToPx, psz.d*world.mmToPx, "rgba(168,85,247,0.08)", "rgba(168,85,247,0.25)", 1);
 drawLabel("Z-lift racks ext", rackZExt.x, rackZExt.y-10);
 drawLabel("Z-lift placas ext M2", plateZExt.x, plateZExt.y-10);
-drawLabel("Z-lift stack", pszTL.x, pszTL.y-10);
+drawLabel("Z-lift stack ext", pszTL.x, pszTL.y-10);
 
 
     const pb = mm2px(world.plateBufferPos);
