@@ -984,15 +984,15 @@ const ioMap = [
 
   // ===== M3 anchors =====
   world.pipRHome =          { x: x3 + W*0.22,  y: y0 + 90 };
-  world.plateSt2 =          { x: x3 + W*0.72,  y: y0 + D*0.22 };
+  world.plateSt2 =          { x: x3 + W*0.30,  y: y0 + D*0.72 };
   world.reservoir =         { x: x3 + W*0.22,  y: y0 + D*0.24 };
   world.wasteA =            { x: x2 + W*0.70,  y: y0 + D*0.32 };
   world.wasteR =            { x: x3 + W*0.22,  y: y0 + D*0.50 };
-  world.plateStackPos =     { x: x3 + W*0.55,  y: y0 + D + LANE + 80 };
-  world.plateStackZ =       { x: x3 + W - 170, y: y0 + D + LANE + 40, w: 130, d: 130 };
-  world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.35 };
-  world.plateOutM3 =        { x: x3 + W*0.55,  y: y0 + D - 30 };
-  world.plateEntryM3External = { x: world.plateInM3.x, y: y0 + D + LANE + 60 };
+  world.plateStackPos =     { x: x3 + W*0.25,  y: y0 + D + LANE + 80 };
+  world.plateStackZ =       { x: x3 + 20,      y: y0 + D + LANE + 40, w: 130, d: 130 };
+  world.plateInM3 =         { x: x3 + 20,      y: y0 + D*0.50 };
+  world.plateOutM3 =        { x: x3 + W*0.25,  y: y0 + D - 30 };
+  world.plateEntryM3External = { x: x3 - 40, y: world.plateInM3.y };
   world.plateExitM3External = { x: world.plateStackPos.x, y: world.plateStackPos.y };
 
   // tips LARGE dentro de M3, bloque inferior izquierdo (más compacto)
@@ -1001,7 +1001,7 @@ const ioMap = [
   const largeBlockW = largeCols * plateW + (largeCols - 1) * tipGap;
   const largeBlockH = largeRows * plateD + (largeRows - 1) * tipGap;
   const largeStartX = x3 + W - largeBlockW - 30;
-  const largeStartY = y0 + D - largeBlockH - 30;
+  const largeStartY = y0 + 30;
   world.largeBoxTLs = [];
   for (let r=0;r<largeRows;r++){
     for (let c=0;c<largeCols;c++){
@@ -2592,8 +2592,8 @@ if (world.modules.length >= 3){
     drawLabel("Placa entrada M3", plateInM3.x-46, plateInM3.y-22);
 
     const plateInExt = mm2px(world.plateEntryM3External);
-    rect(plateInM3.x - 8, plateInExt.y - 10, 16, (plateInM3.y - plateInExt.y) + 10, "rgba(56,189,248,0.25)", "rgba(56,189,248,0.08)", 1);
-    drawLabel("Cinta entrada placas M3", plateInM3.x-58, plateInExt.y - 6);
+    rect(plateInExt.x, plateInM3.y - 6, (plateInM3.x - plateInExt.x) + 8, 12, "rgba(56,189,248,0.25)", "rgba(56,189,248,0.08)", 1);
+    drawLabel("Cinta entrada placas M3", plateInExt.x-6, plateInM3.y - 10);
 
     const plateOutM3 = mm2px(world.plateOutM3);
     rect(plateOutM3.x-14, plateOutM3.y-10, 28, 20, "rgba(56,189,248,0.35)", "rgba(56,189,248,0.08)", 1);
